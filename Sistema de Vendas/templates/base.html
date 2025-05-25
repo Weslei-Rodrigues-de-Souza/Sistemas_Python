@@ -42,8 +42,14 @@
                     <a class="nav-link" href="{{ url_for('vendas_lista_page') }}">
                         Vendas</a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('financeiro_lista') }}">Financeiro</a> {# TODO: Substituir # pela URL correta do Financeiro #}
+                <li class="nav-item dropdown {% if request.endpoint in ['financeiro_lista', 'relatorio_contas_pendentes'] %}active{% endif %}">
+                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownFinanceiro" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        Financeiro
+                    </a>
+                    <div class="dropdown-menu" aria-labelledby="navbarDropdownFinanceiro">
+                        <a class="dropdown-item {% if request.endpoint == 'financeiro_lista' %}active{% endif %}" href="{{ url_for('financeiro_lista') }}">Registros Financeiros</a>
+                        <a class="dropdown-item {% if request.endpoint == 'relatorio_contas_pendentes' %}active{% endif %}" href="{{ url_for('relatorio_contas_pendentes') }}">Relatório de Contas Pendentes</a>
+                    </div>
                 </li>
             </ul>
         </div>

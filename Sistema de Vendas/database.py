@@ -562,22 +562,26 @@ class DatabaseManager:
         return self.execute_query(query, (venda_id,), fetch_all=True) or []
 
     # --- Lançamentos Financeiros ---
-    def add_lancamento_financeiro(self, data, conn=None):
+    def add_lancamento_financeiro(self, data, conn=None, data_lancamento=None):
         query = "INSERT INTO lancamentos_financeiros (venda_id, descricao, tipo, valor, numero_parcela_atual, total_parcelas, data_vencimento, status_pagamento, forma_pagamento_efetiva, observacao, data_lancamento) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-        params = (data.get('venda_id'), data['descricao'], data['tipo'], data['valor'], data.get('numero_parcela_atual', 1), data.get('total_parcelas', 1), data['data_vencimento'], data.get('status_pagamento', 'Pendente'), data.get('forma_pagamento_efetiva'), data.get('observacao'), data.get('data_lancamento', datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+        params = (data.get('venda_id'), data['descricao'], data['tipo'], data['valor'], data.get('numero_parcela_atual', 1), data.get('total_parcelas', 1), data['data_vencimento'], data.get('status_pagamento', 'Pendente'), data.get('forma_pagamento_efetiva'), data.get('observacao'), data_lancamento if data_lancamento else datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         use_external_conn = conn is not None
         current_conn = conn if use_external_conn else self._get_connection()
         cursor = current_conn.cursor()
         try:
             cursor.execute(query, params)
             last_id = cursor.lastrowid
-            if not use_external_conn: current_conn.commit()
+            if not use_external_conn:
+                current_conn.commit()
             return last_id
         except sqlite3.Error as e:
             print(f"Error adding financial entry: {e}")
-            if not use_external_conn and current_conn: current_conn.rollback()
-            raise
-
+            if not use_external_conn and current_conn:
+                current_conn.rollback()
+            return None
+        finally:
+            if not use_external_conn and current_conn:
+                current_conn.close()
     def get_valor_total_vendas_mes_atual(self):
         try:
             today = datetime.date.today()
@@ -636,13 +640,23 @@ class DatabaseManager:
             print(f"Erro ao calcular ticket médio: {e}")
             return 0.0
 
-    def get_all_lancamentos_financeiros(self, filtro_status=None, filtro_tipo=None, order_by="data_vencimento ASC, id ASC"):
+    def get_all_lancamentos_financeiros(self, filtro_status=None, filtro_tipo=None, data_inicio=None, data_fim=None, order_by="data_vencimento ASC, id ASC"):
         query_str = "SELECT lf.*, v.id as venda_numero FROM lancamentos_financeiros lf LEFT JOIN vendas v ON lf.venda_id = v.id"
         conditions = []; params = []
         if filtro_status: conditions.append("lf.status_pagamento = ?"); params.append(filtro_status)
         if filtro_tipo: conditions.append("lf.tipo = ?"); params.append(filtro_tipo)
+        
+        # Adiciona condições de data
+        if data_inicio:
+            conditions.append("lf.data_vencimento >= ?")
+            params.append(data_inicio)
+        if data_fim:
+            conditions.append("lf.data_vencimento <= ?")
+            params.append(data_fim)
+
         if conditions: query_str += " WHERE " + " AND ".join(conditions)
         query_str += f" ORDER BY {order_by}"
+        
         return self.execute_query(query_str, params, fetch_all=True)
 
     def update_status_lancamento(self, lancamento_id, novo_status, data_pagamento=None, forma_pagamento_efetiva=None):

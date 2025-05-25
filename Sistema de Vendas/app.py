@@ -10,6 +10,7 @@ diretorio_pai = os.path.dirname(diretorio_atual)
 if diretorio_pai not in sys.path:
     sys.path.insert(0, diretorio_pai)
 import os
+from werkzeug.utils import secure_filename
 
 print("--- Debugging Import Path ---")
 print(f"Current working directory: {os.getcwd()}")
@@ -17,7 +18,7 @@ print("sys.path:")
 for p in sys.path:
  print(p)
 print("---------------------------")
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory, current_app, Blueprint
 from database import db_manager, DB_NAME # Seu database.py (sales_system_database_py_v10)
 from decimal import Decimal
 
@@ -777,7 +778,71 @@ def api_vendas_annually():
 # Rota para servir imagens de produtos
 @app.route('/uploads/product_images/<filename>')
 def uploaded_product_image(filename):
-    return send_from_directory(app.config['PRODUCT_IMAGE_UPLOAD_FOLDER'], filename)
+ return send_from_directory(app.config['PRODUCT_IMAGE_UPLOAD_FOLDER'], filename)
+
+@app.route('/financeiro/relatorio/fluxo-de-caixa')
+def relatorio_contas_pendentes():
+    try:
+        # 1. Obter filtros da URL
+        filtro_tipo = request.args.get('filtroTipo', None)
+        filtro_data_inicio = request.args.get('filtroDataInicio', None)
+        filtro_data_fim = request.args.get('filtroDataFim', None)
+
+        # 2. Chamar o método do DB com os filtros
+        lancamentos_rows = db_manager.get_all_lancamentos_financeiros(
+            filtro_tipo=filtro_tipo if filtro_tipo and filtro_tipo != 'Todos' else None,
+            data_inicio=filtro_data_inicio,
+            data_fim=filtro_data_fim
+        )
+
+        # 3. Calcular saldo acumulado
+        saldo_acumulado = Decimal('0.00')
+        lancamentos_com_saldo = []
+
+        # Verificar se lancamentos_rows não é None ou vazio antes de iterar
+        if lancamentos_rows:
+            for lanc_row in lancamentos_rows:
+                lanc = dict(lanc_row) # Converte a linha do banco para dicionário
+                try:
+                    valor = Decimal(str(lanc.get('valor', '0.00')))
+                except (ValueError, TypeError):
+                    valor = Decimal('0.00') # Valor padrão seguro em caso de erro
+                if lanc.get('tipo') == 'Receita':
+                    saldo_acumulado += valor
+                elif lanc.get('tipo') == 'Despesa':
+                    saldo_acumulado -= valor
+                lanc['saldo_acumulado'] = saldo_acumulado # Adiciona o saldo acumulado à linha
+                lancamentos_com_saldo.append(lanc)
+
+        # 4. Obter estatísticas gerais para o cabeçalho
+        # Embora o foco seja o fluxo de caixa, as stats do financeiro geral podem ser úteis.
+        stats = db_manager.get_dashboard_stats() # Ou um método mais específico se houver
+        # Ajustar tipos Decimal para stats se necessário
+        stats['a_receber_total'] = Decimal(stats.get('a_receber_total') if stats.get('a_receber_total') is not None else 0.0)
+        stats['a_pagar_total'] = Decimal(stats.get('a_pagar_total') if stats.get('a_pagar_total') is not None else 0.0)
+        stats['recebido_mes_atual'] = Decimal(stats.get('recebido_mes_atual') if stats.get('recebido_mes_atual') is not None else 0.0)
+        stats['pago_mes_atual'] = Decimal(stats.get('pago_mes_atual') if stats.get('pago_mes_atual') is not None else 0.0)
+
+    except Exception as e:
+        # 5. Tratar erros e manter filtros no template
+        flash(f"Erro ao carregar dados para o relatório de fluxo de caixa: {e}", "danger")
+        lancamentos_com_saldo = []
+        # Manter os valores do filtro mesmo em erro
+        filtro_tipo = request.args.get('filtroTipo', None)
+        filtro_data_inicio = request.args.get('filtroDataInicio', None)
+        filtro_data_fim = request.args.get('filtroDataFim', None)
+        stats = {
+ 'a_receber_total': Decimal('0.00'), 'a_pagar_total': Decimal('0.00'),
+ 'recebido_mes_atual': Decimal('0.00'), 'pago_mes_atual': Decimal('0.00')
+ } # Resetar stats em caso de erro
+
+        # 6. Renderizar template com dados e filtros
+    return render_template('relatorio.html',
+                           lancamentos=lancamentos_com_saldo,
+                           stats=stats,
+                           filtro_tipo_atual=filtro_tipo,
+ filtro_data_inicio_atual=filtro_data_inicio,
+ filtro_data_fim_atual=filtro_data_fim)
 
 if __name__ == '__main__':
     if not os.path.exists(DB_NAME):

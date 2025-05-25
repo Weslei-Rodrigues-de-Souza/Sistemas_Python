@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Relatório - Fluxo de Caixa</h1>
+
+<div class="filters-container">
+ <label for="filter-tipo">Tipo:</label>
+ <form id="filtroForm" method="GET" class="form-inline">
+ <select id="filter-tipo" name="tipo" class="form-control form-control-sm mr-2">
+ <option value="">Todos</option>
+ <option value="Receita">Receita</option>
+ <option value="Despesa">Despesa</option>
+ </select>
+ {# <!-- Filtros (Apenas Estrutura Visual) --> #}
+
+ <label for="filter-data-inicio">Data Início:</label>
+ <input type="date" id="filter-data-inicio" name="data_inicio" class="form-control form-control-sm d-inline-block w-auto mr-2">
+
+ <label for="filter-data-fim">Data Fim:</label>
+ <input type="date" id="filter-data-fim" name="data_fim" class="form-control form-control-sm d-inline-block w-auto mr-2">
+
+ <button type="submit" class="btn btn-primary btn-sm mr-2" name="filtrar">Filtrar</button>
+ <button type="button" class="btn btn-secondary btn-sm" name="limpar_filtros">Limpar Filtros</button>
+ </form>
+</div>
+
+<br/>
+
+<!-- Controles de Exibição e Busca (Apenas Estrutura Visual) -->
+<div class="controls-container d-flex justify-content-between align-items-center mb-3" style="display: none;"> {# Ocultado, DataTables gerencia #}
+ <div class="show-entries">
+ Show
+ <select class="form-control form-control-sm d-inline-block w-auto">
+ <option>10</option>
+ <option>25</option>
+ <option>50</option>
+ <option>100</option>
+ </select>
+        entries
+ </div>
+ <div class="search-box">
+        Search:
+ <input type="text" class="form-control form-control-sm d-inline-block w-auto"/>
+ </div>
+</div>
+
+<br/>
+
+<!-- Tabela de Contas Pendentes -->
+<div class="card shadow-sm">
+    <div class="card-header">
+        Registros Financeiros
+    </div>
+    <div class="card-body">
+        {% if contas_pendentes %}
+        <div class="table-responsive">
+            <table class="table table-hover table-sm table-financeiro" id="tabelaLancamentos">
+        <thead>
+            <tr>
+ <th>ID</th>
+                <th>Descrição</th>
+ <th>Venda ID</th>
+ <th>Tipo</th>
+ <th>Valor (R$)</th>
+ <th>Data Venc.</th>
+ <th>Status Pag.</th>
+ <th>Data Pag.</th>
+ <th>Forma Pag. Efet.</th>
+ <th>Saldo (R$)</th>
+            </tr>
+                </thead>
+        <tbody>
+            {% for conta in contas_pendentes %}
+                <tr>
+ <td>{{ conta.id }}</td>
+                    <td>{{ conta.descricao }}</td>
+ <td>{% if conta.venda_id %}<a href="{{ url_for('view_venda_page', venda_id=conta.venda_id) }}" title="Ver Venda">#{{ conta.venda_id }}</a>{% else %}N/A{% endif %}</td>
+ <td class="{{ 'text-receita' if conta.tipo == 'Receita' else 'text-despesa' }}">{{ conta.tipo }}</td>
+ <td class="{{ 'text-receita' if conta.tipo == 'Receita' else 'text-despesa' }} font-weight-bold">
+                            {{ "+ " if conta.tipo == 'Receita' else "- " }}
+ {{ "%.2f"|format(conta.valor)|replace('.', ',') }}
+                        </td>
+ <td>{{ conta.data_vencimento | date_input | datetime_display }}</td>
+ <td>
+                            <span class="badge badge-pill p-2 {% if conta.status_pagamento == 'Recebido' %}status-recebido{% else %}status-{{ conta.status_pagamento.replace('í', 'i').replace('ú', 'u').replace('ç', 'c') }}{% endif %}">{{ conta.status_pagamento }}</span>
+                        </td>
+ <td>{{ conta.data_pagamento | date_input | datetime_display if conta.data_pagamento else 'N/A' }}</td>
+ <td>{{ conta.forma_pagamento_efetiva or 'N/A' }}</td>
+ <td class="font-weight-bold {{ 'text-success' if (conta.saldo_acumulado | default(0.0)) >= 0 else 'text-danger' }}">
+                            {{ "%.2f"|format(conta.saldo_acumulado|default(0.0))|replace('.', ',') }}
+                        </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">Nenhum lançamento financeiro encontrado para os filtros aplicados.</div>
+        {% endif %}
+    </div>
+</div>
+
+<br/>
+
+<!-- Paginação (Apenas Estrutura Visual) -->
+<div class="pagination-container" style="display: none;"> {# Ocultado, DataTables gerencia #}
+ <div class="showing-info">
+ Showing X to Y of Z entries
+ </div>
+ <div class="pagination-controls">
+        <button class="btn btn-outline-secondary btn-sm">Previous</button>
+        <button class="btn btn-outline-primary btn-sm">1</button>
+        <button class="btn btn-outline-secondary btn-sm">Next</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+{% endblock %}
