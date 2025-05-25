@@ -1,0 +1,374 @@
+{% extends "base.html" %}
+
+{% block title %}Detalhes da Venda{% endblock %}
+
+{% block head_extra %}
+<style>
+    .card-text { margin-bottom: 0.5rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>Histórico de Vendas</h2>
+                <button type="button" class="btn btn-success" data-toggle="modal" data-target="#vendaModal" id="btnAbrirModalNovaVenda">
+                    ➕ Registrar Nova Venda
+                </button>
+            </div>
+
+            {% if vendas %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover datatable" id="tabelaVendas">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th>ID</th>
+                            <th>Cliente</th>
+                            <th>Forma de Pagamento</th>
+                            <th>Status</th>
+                            <th>Parcelas</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for venda in vendas %}
+                        <tr>
+                            <td>{{ venda.id }}</td>
+                            <td>{{ venda.cliente_nome }}</td>
+                            <td>
+                                {% if venda.numero_parcelas and venda.numero_parcelas > 1 %}
+                                    {{ venda.numero_parcelas }}x 
+                                    {% if venda.periodo_pagamento_parcelas %}
+                                        ({{ venda.periodo_pagamento_parcelas }})
+                                    {% endif %}
+                                {% elif venda.forma_pagamento %}
+                                    1x
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>
+                                {# Ajuste para remover acentos e cedilha para nome de classe CSS #}
+                                {% set status_class = venda.status.lower().replace('í', 'i').replace('ú', 'u').replace('ç', 'c').replace('ã', 'a') %}
+                                <span class="badge badge-pill p-2 status-{{ status_class }}">{{ venda.status }}</span>
+                            </td>
+                            <td>
+                                <p><strong>Total de Parcelas:</strong> {{ venda.total_parcelas }}</p>
+                                <p><strong>Parcelas Pagas:</strong> {{ venda.parcelas_pagas }}</p>
+                                <p><strong>Parcelas em Aberto:</strong> {{ venda.parcelas_em_aberto }}</p>
+                            </td>
+                            <td class="action-buttons">
+                                {% if venda.status == 'Rascunho' %}
+                                    <button type="button" class="btn btn-sm btn-info btn-edit-rascunho"
+                                            data-venda-id="{{ venda.id }}" title="Editar Rascunho">✏️ Editar</button>
+                                    <form action="{{ url_for('venda_finalizar', venda_id=venda.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja finalizar esta venda? O estoque será atualizado.');">
+                                        <button type="submit" class="btn btn-sm btn-success" title="Finalizar Venda">✔️ Finalizar</button>
+                                    </form>
+                                {% elif venda.status == 'Concluída' %}
+                                    <a href="{{ url_for('view_venda_page', venda_id=venda.id) }}" class="btn btn-sm btn-outline-info" title="Ver Detalhes">👁️ Ver</a>
+                                {% endif %}
+                                
+                                {% if venda.status != 'Cancelada' %}
+                                <form action="{{ url_for('venda_cancelar', venda_id=venda.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja cancelar esta venda? {% if venda.status == 'Rascunho' %}Este rascunho será removido.{% elif venda.status == 'Concluída' %}O estoque dos itens será devolvido.{% endif %}');">
+                                    <button type="submit" class="btn btn-sm btn-danger" title="Cancelar Venda">❌ Cancelar</button>
+                                </form>
+                                {% else %}
+                                     <a href="{{ url_for('view_venda_page', venda_id=venda.id) }}" class="btn btn-sm btn-outline-secondary" title="Ver Detalhes (Cancelada)">👁️ Ver</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">Nenhuma venda encontrada.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% include '_modal_venda.html' with context %}
+
+{% block scripts_extra %}
+<script>
+$(document).ready(function() {
+    // --- Início: Lógica do Modal de Venda ---
+    if ($.fn.select2 && !$('#cliente_id_venda_modal').data('select2')) {
+        $('#cliente_id_venda_modal').select2({
+            theme: 'bootstrap', language: "pt-BR", placeholder: "Selecione um cliente...", allowClear: true,
+            dropdownParent: $('#vendaModal')
+        });
+    }
+    // Inicializar select2 para forma de pagamento se desejado, mas não é estritamente necessário para um select simples.
+    // $('#forma_pagamento_modal').select2({ theme: 'bootstrap', minimumResultsForSearch: Infinity, dropdownParent: $('#vendaModal') });
+
+
+    function inicializarSelect2ParaLinhaModal(rowElement) {
+        $(rowElement).find('.item-select').each(function() {
+            var $this = $(this);
+            var placeholderText = $this.find('option:first').text();
+            if ($.fn.select2 && !$this.data('select2')) {
+                $this.select2({
+                    theme: 'bootstrap', language: "pt-BR", placeholder: placeholderText,
+                    dropdownParent: $('#vendaModal')
+                });
+            }
+        });
+    }
+
+    function calcularSubtotalModal($row) {
+        var quantidade = parseInt($row.find('.quantidade-input-venda-modal').val() || 0);
+        var precoUnitarioText = $row.find('.item-preco-unitario-modal').text().replace(',', '.');
+        var precoUnitario = parseFloat(precoUnitarioText || 0);
+        var subtotal = quantidade * precoUnitario;
+        $row.find('.item-subtotal-modal').text(subtotal.toFixed(2).replace('.', ','));
+        calcularTotalGeralModal();
+    }
+
+    function calcularTotalGeralModal() {
+        var totalGeral = 0;
+        $('#itensVendaTableModal tbody tr').each(function() {
+            var subtotalText = $(this).find('.item-subtotal-modal').text().replace(',', '.');
+            totalGeral += parseFloat(subtotalText || 0);
+        });
+        $('#totalGeralVendaModal').text(totalGeral.toFixed(2).replace('.', ','));
+    }
+    
+    function limparFormularioVendaModal() {
+        $('#formVendaModal')[0].reset();
+        $('#venda_id_modal').val('');
+        $('#cliente_id_venda_modal').val("None").trigger('change');
+        $('#itensVendaTableModal tbody').empty();
+        calcularTotalGeralModal();
+        $('#vendaModalLabel').text('Registrar Nova Venda');
+        $('#btnSalvarRascunhoVenda').text('Salvar Rascunho');
+        var now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        $('#data_venda_modal').val(now.toISOString().slice(0,16));
+        // Resetar campos de pagamento
+        $('#forma_pagamento_modal').val("").trigger('change'); // Dispara o change para ocultar parcelas
+        $('#detalhes_cartao_credito_modal').hide();
+        $('#numero_parcelas_modal').val(1);
+        $('#periodo_pagamento_parcelas_modal').val("");
+
+    }
+
+    $('#btnAbrirModalNovaVenda').on('click', function() {
+        limparFormularioVendaModal();
+    });
+    
+    $('#vendaModal').on('hidden.bs.modal', function () {
+        limparFormularioVendaModal();
+    });
+
+    $('#btnAdicionarItemVendaModal').on('click', function() {
+        var template = $('#templateLinhaItemVendaModal').html();
+        $('#itensVendaTableModal tbody').append(template);
+        var newRow = $('#itensVendaTableModal tbody tr:last');
+        inicializarSelect2ParaLinhaModal(newRow);
+    });
+
+    // --- Lógica de Dropdowns Dependentes para Itens ---
+    $('#itensVendaTableModal').on('change', '.item-grupo-select-modal', function() {
+        var grupoId = $(this).val();
+        var $row = $(this).closest('tr');
+        var $categoriaSelect = $row.find('.item-categoria-select-modal');
+        var $produtoSelect = $row.find('.item-produto-select-modal');
+        $categoriaSelect.empty().append('<option value="">Carregando...</option>').prop('disabled', true).trigger('change.select2');
+        $produtoSelect.empty().append('<option value="">Selecione Categoria...</option>').prop('disabled', true).trigger('change.select2');
+        $row.find('.item-preco-unitario-modal').text('0,00');
+        $row.find('.item-estoque-disponivel-modal').text('-');
+        calcularSubtotalModal($row);
+        if (grupoId) {
+            $.ajax({
+                url: `/api/categorias_por_grupo/${grupoId}`, method: 'GET',
+                success: function(categorias) {
+                    $categoriaSelect.empty().append('<option value="">Selecione Categoria...</option>');
+                    if (categorias && categorias.length > 0) {
+                        $.each(categorias, function(i, categoria) { $categoriaSelect.append($('<option>', { value: categoria.id, text: categoria.nome })); });
+                        $categoriaSelect.prop('disabled', false);
+                    } else { $categoriaSelect.append('<option value="">Nenhuma categoria</option>'); }
+                    if ($.fn.select2) { $categoriaSelect.trigger('change.select2'); }
+                    var targetCategoriaId = $row.data('target-categoria-id');
+                    if(targetCategoriaId){ $categoriaSelect.val(targetCategoriaId).trigger('change'); $row.removeData('target-categoria-id'); }
+                },
+                error: function() { showToast("Erro", "Erro ao carregar categorias.", false); $categoriaSelect.empty().append('<option value="">Erro</option>'); if ($.fn.select2) { $categoriaSelect.trigger('change.select2');}}
+            });
+        } else { if ($.fn.select2) { $categoriaSelect.trigger('change.select2'); } }
+    });
+
+    $('#itensVendaTableModal').on('change', '.item-categoria-select-modal', function() {
+        var categoriaId = $(this).val();
+        var $row = $(this).closest('tr');
+        var $produtoSelect = $row.find('.item-produto-select-modal');
+        $produtoSelect.empty().append('<option value="">Carregando...</option>').prop('disabled', true).trigger('change.select2');
+        $row.find('.item-preco-unitario-modal').text('0,00');
+        $row.find('.item-estoque-disponivel-modal').text('-');
+        calcularSubtotalModal($row);
+        if (categoriaId) {
+            $.ajax({
+                url: `/api/produtos_por_categoria/${categoriaId}`, method: 'GET',
+                success: function(produtos) {
+                    $produtoSelect.empty().append('<option value="">Selecione Produto...</option>');
+                    if (produtos && produtos.length > 0) {
+                        var produtosComEstoque = 0;
+                        $.each(produtos, function(i, produto) {
+                            // if (produto.quantidade_estoque > 0) { // Comentado para permitir adicionar mesmo sem estoque (para rascunho)
+                                $produtoSelect.append($('<option>', { value: produto.id, text: produto.nome, 'data-preco': produto.preco_venda, 'data-estoque': produto.quantidade_estoque, 'data-unidade': produto.unidade_medida || 'Un.' }));
+                                produtosComEstoque++;
+                            // }
+                        });
+                        if(produtosComEstoque === 0 && produtos.length > 0){ $produtoSelect.append('<option value="" disabled>Nenhum produto com estoque</option>');}
+                        else if (produtos.length === 0) { $produtoSelect.append('<option value="" disabled>Nenhum produto</option>');}
+                        $produtoSelect.prop('disabled', false);
+                    } else { $produtoSelect.append('<option value="">Nenhum produto</option>'); }
+                    if ($.fn.select2) { $produtoSelect.trigger('change.select2'); }
+                    var targetProdutoId = $row.data('target-produto-id');
+                    if(targetProdutoId){ $produtoSelect.val(targetProdutoId).trigger('change'); $row.removeData('target-produto-id'); }
+                },
+                error: function() { showToast("Erro", "Erro ao carregar produtos.", false); $produtoSelect.empty().append('<option value="">Erro</option>'); if ($.fn.select2) { $produtoSelect.trigger('change.select2');}}
+            });
+        } else { if ($.fn.select2) { $produtoSelect.trigger('change.select2'); } }
+    });
+
+    $('#itensVendaTableModal').on('change', '.item-produto-select-modal', function() {
+        var selectedOption = $(this).find('option:selected');
+        var $row = $(this).closest('tr');
+        var preco = parseFloat(selectedOption.data('preco') || 0);
+        var estoque = parseInt(selectedOption.data('estoque') || 0);
+        $row.find('.item-preco-unitario-modal').text(preco.toFixed(2).replace('.', ','));
+        $row.find('.item-estoque-disponivel-modal').text(estoque);
+        var targetQuantidade = $row.data('target-quantidade');
+        if(targetQuantidade){ $row.find('.quantidade-input-venda-modal').val(targetQuantidade).attr('max', estoque); $row.removeData('target-quantidade'); }
+        else { $row.find('.quantidade-input-venda-modal').val(1).attr('max', estoque); }
+        calcularSubtotalModal($row);
+    });
+
+    $('#itensVendaTableModal').on('input change', '.quantidade-input-venda-modal', function() {
+        var $row = $(this).closest('tr');
+        var quantidade = parseInt($(this).val() || 0);
+        // var estoqueMax = parseInt($(this).attr('max') || 0); // Validação de estoque será feita ao finalizar
+        if (quantidade < 1 && $(this).val() !== "") { $(this).val(1); }
+        calcularSubtotalModal($row);
+    });
+
+    $('#itensVendaTableModal').on('click', '.btn-remover-item-venda-modal', function() {
+        $(this).closest('tr').remove();
+        calcularTotalGeralModal();
+    });
+    // --- Fim: Lógica de Itens ---
+
+    // --- Lógica de Pagamento ---
+    $('#forma_pagamento_modal').on('change', function() {
+        if ($(this).val() === 'Cartão de Crédito') {
+            $('#detalhes_cartao_credito_modal').slideDown();
+            $('#numero_parcelas_modal').val(1); // Default para 1x
+            $('#periodo_pagamento_parcelas_modal').val("Mensal"); // Default
+        } else {
+            $('#detalhes_cartao_credito_modal').slideUp();
+            $('#numero_parcelas_modal').val(1);
+            $('#periodo_pagamento_parcelas_modal').val("");
+        }
+    });
+
+    $('#numero_parcelas_modal').on('change', function() {
+        if (parseInt($(this).val()) <= 1) {
+            $('#periodo_pagamento_parcelas_modal').val("").prop('disabled', true);
+        } else {
+            $('#periodo_pagamento_parcelas_modal').prop('disabled', false);
+            if (!$('#periodo_pagamento_parcelas_modal').val()){ // Se estiver vazio, default para Mensal
+                 $('#periodo_pagamento_parcelas_modal').val("Mensal");
+            }
+        }
+    }).trigger('change'); // Dispara no load para setar o estado inicial do período
+
+    // --- Submissão do Formulário do Modal ---
+    $('#formVendaModal').on('submit', function(e) {
+        var itensArray = [];
+        var formValido = true;
+        if ($('#itensVendaTableModal tbody tr').length === 0) {
+            showToast("Atenção", "Adicione pelo menos um item à venda.", null);
+            e.preventDefault(); return;
+        }
+        $('#itensVendaTableModal tbody tr').each(function() {
+            var $row = $(this);
+            var produtoId = $row.find('.item-produto-select-modal').val();
+            var quantidade = parseInt($row.find('.quantidade-input-venda-modal').val());
+            var precoUnitario = parseFloat($row.find('.item-preco-unitario-modal').text().replace(',', '.'));
+            var subtotal = parseFloat($row.find('.item-subtotal-modal').text().replace(',', '.'));
+            if (!produtoId || produtoId === "" || isNaN(quantidade) || quantidade <= 0 || isNaN(precoUnitario)) {
+                showToast("Erro", "Verifique os itens: Produto, Quantidade e Preço são obrigatórios e válidos.", false);
+                formValido = false; return false;
+            }
+            itensArray.push({ produtoId: produtoId, quantidade: quantidade, precoUnitario: precoUnitario, subtotal: subtotal });
+        });
+        if (!formValido) { e.preventDefault(); return; }
+        if ($('#forma_pagamento_modal').val() === "") {
+            showToast("Atenção", "Selecione uma forma de pagamento.", false);
+            e.preventDefault(); return;
+        }
+        $('#itens_venda_json_modal').val(JSON.stringify(itensArray));
+    });
+    
+    // --- Lógica para Editar Rascunho ---
+    $('.btn-edit-rascunho').on('click', function() {
+        var vendaId = $(this).data('venda-id');
+        limparFormularioVendaModal();
+        $('#vendaModalLabel').text('Editar Rascunho de Venda #' + vendaId);
+        $('#venda_id_modal').val(vendaId);
+        $('#btnSalvarRascunhoVenda').text('Atualizar Rascunho');
+
+        $.ajax({
+            url: `/venda/rascunho/json/${vendaId}`, method: 'GET',
+            success: function(data) {
+                if (data.error) { showToast("Erro", data.error, false); return; }
+                
+                $('#cliente_id_venda_modal').val(data.venda.cliente_id || "None").trigger('change');
+                var dataVendaFormatada = "";
+                if (data.venda.data_venda) {
+                    try {
+                        var parts = data.venda.data_venda.match(/(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})/);
+                        if (parts) { dataVendaFormatada = `${parts[3]}-${parts[2]}-${parts[1]}T${parts[4]}:${parts[5]}`; }
+                        else { let d = new Date(data.venda.data_venda.replace(/(\d{2})\/(\d{2})\/(\d{4})/, '$3-$2-$1')); dataVendaFormatada = d.toISOString().slice(0,16); }
+                    } catch (e) { let d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); dataVendaFormatada = d.toISOString().slice(0,16); }
+                }
+                $('#data_venda_modal').val(dataVendaFormatada);
+                $('#observacao_venda_modal').val(data.venda.observacao || '');
+
+                // Preencher dados de pagamento
+                $('#forma_pagamento_modal').val(data.venda.forma_pagamento || "").trigger('change'); // Dispara change para mostrar/ocultar parcelas
+                if (data.venda.forma_pagamento === 'Cartão de Crédito') {
+                    $('#numero_parcelas_modal').val(data.venda.numero_parcelas || 1);
+                    $('#periodo_pagamento_parcelas_modal').val(data.venda.periodo_pagamento_parcelas || "Mensal");
+                    $('#numero_parcelas_modal').trigger('change'); // Para habilitar/desabilitar período
+                }
+
+
+                $('#itensVendaTableModal tbody').empty();
+                if (data.itens && data.itens.length > 0) {
+                    $.each(data.itens, function(i, item) {
+                        var template = $('#templateLinhaItemVendaModal').html();
+                        $('#itensVendaTableModal tbody').append(template);
+                        var $newRow = $('#itensVendaTableModal tbody tr:last');
+                        inicializarSelect2ParaLinhaModal($newRow);
+                        
+                        $newRow.data('target-grupo-id', item.grupo_id);
+                        $newRow.data('target-categoria-id', item.categoria_id);
+                        $newRow.data('target-produto-id', item.produto_id);
+                        $newRow.data('target-quantidade', item.quantidade);
+
+                        $newRow.find('.item-grupo-select-modal').val(item.grupo_id).trigger('change');
+                    });
+                } else { calcularTotalGeralModal(); }
+                $('#vendaModal').modal('show');
+            },
+            error: function() { showToast("Erro", "Não foi possível carregar dados do rascunho.", false); }
+        });
+    });
+});
+</script>
+{% endblock %}

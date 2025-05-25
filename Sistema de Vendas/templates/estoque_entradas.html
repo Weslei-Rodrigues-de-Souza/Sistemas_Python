@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block title %}Entrada de Estoque{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-5">
+        <h2>Registrar Nova Entrada</h2>
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('estoque_entradas') }}" id="formEntradaEstoque">
+                    <div class="form-group">
+                        <label for="grupo_id_entrada">Grupo*</label>
+                        <select class="form-control select2-basic" id="grupo_id_entrada" name="grupo_id_entrada" required>
+                            <option value="">Selecione um grupo...</option>
+                            {% for grupo in grupos %}
+                            <option value="{{ grupo.id }}">{{ grupo.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="categoria_id_entrada">Categoria*</label>
+                        <select class="form-control select2-basic" id="categoria_id_entrada" name="categoria_id_entrada" required disabled>
+                            <option value="">Selecione um grupo primeiro...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="produto_id_entrada">Produto*</label>
+                        <select class="form-control select2-basic" id="produto_id_entrada" name="produto_id_entrada" required disabled>
+                            <option value="">Selecione uma categoria primeiro...</option>
+                        </select>
+                        <small id="estoqueAtualInfo" class="form-text text-muted"></small>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label for="quantidade_entrada">Quantidade*</label>
+                            <input type="number" class="form-control" id="quantidade_entrada" name="quantidade_entrada" min="1" required>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label for="preco_custo_entrada">Preço de Custo (R$)</label>
+                            <input type="number" step="0.01" min="0" class="form-control" id="preco_custo_entrada" name="preco_custo_entrada">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="fornecedor_entrada">Fornecedor</label>
+                        <input type="text" class="form-control" id="fornecedor_entrada" name="fornecedor_entrada">
+                    </div>
+                     <div class="form-group">
+                        <label for="observacao_entrada">Observação</label>
+                        <textarea class="form-control" id="observacao_entrada" name="observacao_entrada" rows="2"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Registrar Entrada</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-7">
+        <h2>Histórico de Entradas</h2>
+        {% if entradas %}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover datatable" id="tabelaEntradas">
+                <thead class="thead-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Produto</th>
+                        <th>Qtd.</th>
+                        <th>Custo Unit. (R$)</th>
+                        <th>Fornecedor</th>
+                        <th>Data</th>
+                        <th>Obs.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entrada in entradas %}
+                    <tr>
+                        <td>{{ entrada.id }}</td>
+                        <td>{{ entrada.produto_nome }}</td>
+                        <td>{{ entrada.quantidade }}</td>
+                        <td>{{ "%.2f"|format(entrada.preco_custo)|replace('.', ',') if entrada.preco_custo is not none else 'N/A' }}</td>
+                        <td>{{ entrada.fornecedor or 'N/A' }}</td>
+                        <td>{{ entrada.data_entrada | datetime_display }}</td>
+                        <td>{{ entrada.observacao or ''}}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info mt-3">Nenhuma entrada de estoque registrada ainda.</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+$(document).ready(function() {
+    // Inicializa Select2 para os campos que já existem
+    $('#grupo_id_entrada, #categoria_id_entrada, #produto_id_entrada').each(function() {
+        var $this = $(this);
+        var placeholderText = $this.find('option:first').text(); // Usa o texto da primeira opção como placeholder
+         if ($.fn.select2) {
+            $this.select2({
+                theme: 'bootstrap',
+                language: "pt-BR",
+                placeholder: placeholderText,
+                allowClear: !$this.prop('required') // Permite limpar se não for obrigatório
+            });
+        }
+    });
+
+
+    $('#grupo_id_entrada').on('change', function() {
+        var grupoId = $(this).val();
+        var $categoriaSelect = $('#categoria_id_entrada');
+        var $produtoSelect = $('#produto_id_entrada');
+
+        // Limpa e desabilita selects dependentes
+        $categoriaSelect.empty().append('<option value="">Carregando categorias...</option>').prop('disabled', true).trigger('change');
+        $produtoSelect.empty().append('<option value="">Selecione uma categoria primeiro...</option>').prop('disabled', true).trigger('change');
+        $('#estoqueAtualInfo').text('');
+
+
+        if (grupoId) {
+            $.ajax({
+                url: `/api/categorias_por_grupo/${grupoId}`, // Usando a nova rota API
+                method: 'GET',
+                success: function(categorias) {
+                    $categoriaSelect.empty().append('<option value="">Selecione uma categoria...</option>');
+                    if (categorias && categorias.length > 0) {
+                        $.each(categorias, function(i, categoria) {
+                            $categoriaSelect.append($('<option>', {
+                                value: categoria.id,
+                                text: categoria.nome
+                            }));
+                        });
+                        $categoriaSelect.prop('disabled', false);
+                    } else {
+                        $categoriaSelect.append('<option value="">Nenhuma categoria neste grupo</option>');
+                    }
+                    $categoriaSelect.trigger('change'); // Atualiza o Select2
+                },
+                error: function() {
+                    showToast("Erro", "Não foi possível carregar as categorias.", false);
+                    $categoriaSelect.empty().append('<option value="">Erro ao carregar</option>').prop('disabled', true).trigger('change');
+                }
+            });
+        } else {
+             $categoriaSelect.empty().append('<option value="">Selecione um grupo primeiro...</option>').prop('disabled', true).trigger('change');
+        }
+    });
+
+    $('#categoria_id_entrada').on('change', function() {
+        var categoriaId = $(this).val();
+        var $produtoSelect = $('#produto_id_entrada');
+        $('#estoqueAtualInfo').text('');
+
+
+        $produtoSelect.empty().append('<option value="">Carregando produtos...</option>').prop('disabled', true).trigger('change');
+
+        if (categoriaId) {
+            $.ajax({
+                url: `/api/produtos_por_categoria/${categoriaId}`, // Usando a nova rota API
+                method: 'GET',
+                success: function(produtos) {
+                    $produtoSelect.empty().append('<option value="">Selecione um produto...</option>');
+                    if (produtos && produtos.length > 0) {
+                        $.each(produtos, function(i, produto) {
+                            $produtoSelect.append($('<option>', {
+                                value: produto.id,
+                                text: `${produto.nome} (Estoque: ${produto.quantidade_estoque})`,
+                                'data-estoque': produto.quantidade_estoque
+                            }));
+                        });
+                        $produtoSelect.prop('disabled', false);
+                    } else {
+                        $produtoSelect.append('<option value="">Nenhum produto nesta categoria</option>');
+                    }
+                     $produtoSelect.trigger('change'); // Atualiza o Select2
+                },
+                error: function() {
+                    showToast("Erro", "Não foi possível carregar os produtos.", false);
+                    $produtoSelect.empty().append('<option value="">Erro ao carregar</option>').prop('disabled', true).trigger('change');
+                }
+            });
+        } else {
+            $produtoSelect.empty().append('<option value="">Selecione uma categoria primeiro...</option>').prop('disabled', true).trigger('change');
+        }
+    });
+
+    $('#produto_id_entrada').on('change', function() {
+        var selectedOption = $(this).find('option:selected');
+        var estoque = selectedOption.data('estoque');
+        if (estoque !== undefined) {
+            $('#estoqueAtualInfo').text(`Estoque atual: ${estoque}`);
+        } else {
+            $('#estoqueAtualInfo').text('');
+        }
+    });
+
+});
+</script>
+{% endblock %}

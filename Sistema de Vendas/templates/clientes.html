@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Gerenciar Clientes{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Lista de Clientes</h2>
+    <button type="button" class="btn btn-success" data-toggle="modal" data-target="#addClienteModal">
+        ➕ Adicionar Novo Cliente
+    </button>
+</div>
+
+{% if clientes %}
+<div class="table-responsive">
+    <table class="table table-striped table-hover datatable" id="tabelaClientes">
+        <thead class="thead-dark">
+            <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>Email</th>
+                <th>Telefone</th>
+                <th>Cidade</th>
+                <th>Data Cadastro</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cliente in clientes %}
+            <tr>
+                <td>{{ cliente.id }}</td>
+                <td>{{ cliente.nome }}</td>
+                <td>{{ cliente.email or 'N/A' }}</td>
+                <td>{{ cliente.telefone or 'N/A' }}</td>
+                <td>{{ cliente.endereco_cidade or 'N/A' }}</td>
+                <td>{{ cliente.data_cadastro | datetime_display }}</td>
+                <td class="action-buttons">
+                    <button type="button" class="btn btn-sm btn-outline-primary btn-edit-cliente"
+                            data-toggle="modal" data-target="#editClienteModal"
+                            data-cliente-id="{{ cliente.id }}" title="Editar Cliente">📝</button>
+                    <form action="{{ url_for('cliente_excluir', cliente_id=cliente.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja excluir este cliente?');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir Cliente">🗑️</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-info">
+    {% if search_query %}
+    Nenhum cliente encontrado para "{{ search_query }}".
+    {% else %}
+    Nenhum cliente cadastrado.
+    {% endif %}
+</div>
+{% endif %}
+
+{% include '_modal_cliente.html' %}
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+$(document).ready(function() {
+    // Preencher modal de edição de cliente
+    $('#editClienteModal').on('show.bs.modal', function (event) {
+        var button = $(event.relatedTarget);
+        var clienteId = button.data('cliente-id');
+        var modal = $(this);
+
+        modal.find('#edit_cliente_id_hidden').val(clienteId);
+        modal.find('form').attr('action', "{{ url_for('cliente_editar', cliente_id=0) }}".replace('0', clienteId));
+        modal.find('.modal-title').text('Editar Cliente ID: ' + clienteId);
+
+        $.ajax({
+            url: "{{ url_for('cliente_json', cliente_id=0) }}".replace('0', clienteId),
+            method: 'GET',
+            success: function(response) {
+                if (response && !response.error) {
+                    modal.find('#edit_nome_cliente').val(response.nome);
+                    modal.find('#edit_email_cliente').val(response.email || '');
+                    modal.find('#edit_telefone_cliente').val(response.telefone || '');
+                    modal.find('#edit_endereco_rua_cliente').val(response.endereco_rua || '');
+                    modal.find('#edit_endereco_numero_cliente').val(response.endereco_numero || '');
+                    modal.find('#edit_endereco_bairro_cliente').val(response.endereco_bairro || '');
+                    modal.find('#edit_endereco_cidade_cliente').val(response.endereco_cidade || '');
+                    modal.find('#edit_endereco_uf_cliente').val(response.endereco_uf || '');
+                    modal.find('#edit_endereco_cep_cliente').val(response.endereco_cep || '');
+                } else {
+                    showToast("Erro", response.error || "Não foi possível carregar dados do cliente.", false);
+                    modal.modal('hide');
+                }
+            },
+            error: function() {
+                showToast("Erro", "Falha na comunicação ao buscar dados do cliente.", false);
+                modal.modal('hide');
+            }
+        });
+    });
+
+    $('#addClienteModal').on('hidden.bs.modal', function () {
+        $(this).find('form')[0].reset();
+    });
+    $('#editClienteModal').on('hidden.bs.modal', function () {
+        $(this).find('form')[0].reset();
+    });
+});
+</script>
+{% endblock %}

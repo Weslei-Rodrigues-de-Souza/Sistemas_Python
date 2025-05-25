@@ -1,0 +1,52 @@
+<div class="modal fade" id="editarLancamentoModal" tabindex="-1" role="dialog" aria-labelledby="editarLancamentoModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form method="POST" id="formEditarLancamento">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editarLancamentoModalLabel">Editar Lançamento Financeiro</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="editar_lancamento_id" id="editar_lancamento_id">
+                    <div class="form-group">
+                        <label for="editar_descricao_lancamento">Descrição</label>
+                        <input type="text" class="form-control" id="editar_descricao_lancamento" name="descricao" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editar_tipo_lancamento">Tipo</label>
+                        <select class="form-control" id="editar_tipo_lancamento" name="tipo" required>
+                            <option value="Receita">Receita</option>
+                            <option value="Despesa">Despesa</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="editar_valor_lancamento">Valor</label>
+                        <input type="number" step="0.01" class="form-control" id="editar_valor_lancamento" name="valor" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editar_data_vencimento_lancamento">Data de Vencimento</label>
+                        <input type="date" class="form-control" id="editar_data_vencimento_lancamento" name="data_vencimento" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editar_forma_pagamento_efetiva_lancamento">Forma de Pagamento Efetiva</label>
+                        <select class="form-control" id="editar_forma_pagamento_efetiva_lancamento" name="forma_pagamento_efetiva">
+                            <option value="">Selecione...</option>
+                            <option value="Dinheiro">Dinheiro</option>
+                            <option value="Pix">Pix</option>
+                            <option value="Cartão de Crédito">Cartão de Crédito</option>
+                            <option value="Cartão de Débito">Cartão de Débito</option>
+                            <option value="Transferência Bancária">Transferência Bancária</option>
+                            <option value="Outro">Outro</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

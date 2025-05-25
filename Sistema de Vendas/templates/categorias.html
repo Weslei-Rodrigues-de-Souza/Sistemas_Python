@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Gerenciar Categorias de Jogos{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Categorias de Jogos</h2>
+    <button type="button" class="btn btn-success" data-toggle="modal" data-target="#addCategoriaModal">
+        ➕ Adicionar Nova Categoria
+    </button>
+</div>
+
+<form method="GET" action="{{ url_for('categorias_lista') }}" class="form-inline mb-3">
+    <input type="text" name="search" class="form-control mr-sm-2" placeholder="Pesquisar categoria, grupo..." value="{{ search_query or '' }}">
+    <button type="submit" class="btn btn-outline-secondary">Pesquisar</button>
+</form>
+
+{% if categorias %}
+<div class="table-responsive">
+    <table class="table table-striped table-hover datatable" id="tabelaCategorias">
+        <thead class="thead-dark">
+            <tr>
+                <th>ID</th>
+                <th>Nome da Categoria</th>
+                <th>Grupo</th>
+                <th>Descrição</th>
+                <th>Data Cadastro</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for categoria in categorias %}
+            <tr>
+                <td>{{ categoria.id }}</td>
+                <td>{{ categoria.nome }}</td>
+                <td>{{ categoria.grupo_nome or 'N/A' }}</td>
+                <td>{{ categoria.descricao or 'N/A' }}</td>
+                <td>{{ categoria.data_cadastro | datetime_display }}</td>
+                <td class="action-buttons">
+                    <button type="button" class="btn btn-sm btn-outline-primary btn-edit-categoria"
+                            data-toggle="modal" data-target="#editCategoriaModal"
+                            data-categoria-id="{{ categoria.id }}" title="Editar Categoria">📝</button>
+                    <form action="{{ url_for('categoria_excluir', categoria_id=categoria.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja excluir esta categoria? Produtos associados terão a categoria removida.');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir Categoria">🗑️</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-info">
+    {% if search_query %}
+    Nenhuma categoria encontrada para "{{ search_query }}". <a href="{{ url_for('categorias_lista') }}">Limpar pesquisa</a>
+    {% else %}
+    Nenhuma categoria cadastrada.
+    {% endif %}
+</div>
+{% endif %}
+
+{# Passa a lista de grupos para o modal de categoria #}
+{% include '_modal_categoria.html' with context %}
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+$(document).ready(function() {
+    // Preencher modal de edição de categoria
+    $('#editCategoriaModal').on('show.bs.modal', function (event) {
+        var button = $(event.relatedTarget);
+        var categoriaId = button.data('categoria-id');
+        var modal = $(this);
+
+        modal.find('#edit_categoria_id_hidden').val(categoriaId);
+        modal.find('form').attr('action', "{{ url_for('categoria_editar', categoria_id=0) }}".replace('0', categoriaId));
+        modal.find('.modal-title').text('Editar Categoria ID: ' + categoriaId);
+
+        // Limpar select de grupo antes de popular
+        var $selectGrupo = modal.find('#edit_grupo_id_categoria');
+        $selectGrupo.val(null).trigger('change'); // Para Select2
+
+        $.ajax({
+            url: "{{ url_for('categoria_json', categoria_id=0) }}".replace('0', categoriaId),
+            method: 'GET',
+            success: function(response) {
+                if (response && !response.error) {
+                    modal.find('#edit_nome_categoria').val(response.nome);
+                    modal.find('#edit_descricao_categoria').val(response.descricao || '');
+                    // Selecionar o grupo correto
+                    if (response.grupo_id !== null && response.grupo_id !== undefined) {
+                        $selectGrupo.val(response.grupo_id).trigger('change');
+                    } else {
+                        $selectGrupo.val("None").trigger('change'); // Ou deixe como placeholder
+                    }
+                } else {
+                    showToast("Erro", response.error || "Não foi possível carregar dados da categoria.", false);
+                    modal.modal('hide');
+                }
+            },
+            error: function() {
+                showToast("Erro", "Falha na comunicação ao buscar dados da categoria.", false);
+                modal.modal('hide');
+            }
+        });
+    });
+
+    // Limpar formulários ao fechar modais
+    $('#addCategoriaModal').on('hidden.bs.modal', function () {
+        $(this).find('form')[0].reset();
+        $(this).find('#grupo_id_categoria').val("None").trigger('change'); // Reset Select2
+    });
+    $('#editCategoriaModal').on('hidden.bs.modal', function () {
+        $(this).find('form')[0].reset();
+        $(this).find('#edit_grupo_id_categoria').val("None").trigger('change'); // Reset Select2
+    });
+
+    // Inicializar Select2 nos modais de categoria
+    if ($.fn.select2) {
+        $('#grupo_id_categoria').select2({ theme: 'bootstrap', language: "pt-BR", placeholder: "Selecione um grupo...", allowClear: true, dropdownParent: $('#addCategoriaModal') });
+        $('#edit_grupo_id_categoria').select2({ theme: 'bootstrap', language: "pt-BR", placeholder: "Selecione um grupo...", allowClear: true, dropdownParent: $('#editCategoriaModal') });
+    }
+});
+</script>
+{% endblock %}

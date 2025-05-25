@@ -1,0 +1,178 @@
+/* Estilos Globais do Body e Footer para Rodapé Fixo */
+html, body {
+    height: 100%;
+    margin: 0;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    padding-top: 70px; /* Ajuste para acomodar a navbar fixa e dar um respiro */
+    background-color: #f4f7f6; /* Um cinza muito claro para o fundo geral */
+}
+
+.navbar {
+    /* A navbar já é fixed-top via classe Bootstrap em base.html */
+}
+
+.container {
+    flex: 1 0 auto; /* Faz o container principal expandir para preencher o espaço */
+    padding-top: 1.5rem; /* Espaço para o conteúdo abaixo da navbar */
+    padding-bottom: 1.5rem; /* Espaço antes do rodapé */
+}
+
+.footer {
+    flex-shrink: 0; /* Impede que o rodapé encolha */
+    background-color: #e9ecef; /* Um cinza um pouco mais escuro para o rodapé */
+    padding: 1rem 0;
+    text-align: center;
+    margin-top: auto; /* Empurra para baixo se o conteúdo for menor que a tela */
+    border-top: 1px solid #dee2e6;
+}
+
+/* Estilos para o container de Toasts */
+.toast-container {
+    position: fixed;
+    top: 80px; /* Ajustado para um pouco abaixo da navbar fixa */
+    right: 1.5rem;
+    z-index: 1055;
+    min-width: 320px;
+}
+
+/* Estilos para Select2 dentro de modais Bootstrap */
+.select2-container--bootstrap .select2-dropdown {
+    z-index: 1056 !important; /* Acima do modal (1050) e do backdrop (1040) */
+}
+.select2-container--bootstrap .select2-selection--single {
+    height: calc(1.5em + .75rem + 2px) !important; /* Força altura do Bootstrap */
+    padding: .375rem .75rem !important;
+    line-height: 1.5 !important;
+    border-radius: .25rem; /* Bordas arredondadas consistentes */
+}
+.select2-container--bootstrap .select2-selection--single .select2-selection__rendered {
+    line-height: 1.5 !important;
+    padding-left: 0 !important; /* Ajuste para alinhamento do texto */
+}
+.select2-container--bootstrap .select2-selection--single .select2-selection__arrow {
+    height: calc(1.5em + .75rem) !important;
+    right: 0.5rem !important;
+}
+.input-group .select2-container--bootstrap { /* Para Select2 dentro de input-group */
+    flex: 1 1 auto;
+    width: 1% !important;
+}
+/* .input-group > .select2-container--bootstrap {
+    width: auto !important; -- This was duplicated, check if needed with specific context
+} */
+.input-group-append .btn { /* Alinha altura do botão com o select no input-group */
+    height: calc(1.5em + .75rem + 2px);
+}
+
+
+/* Estilos para Accordion/Collapse (Exemplo, pode não ser usado diretamente) */
+.card-header .btn-link {
+    font-weight: 500;
+    color: #007bff;
+    text-decoration: none;
+    width: 100%;
+    text-align: left;
+}
+.card-header .btn-link:hover {
+    color: #0056b3;
+    text-decoration: none;
+}
+.card-header .btn-link.collapsed:after {
+    content: ' ▼';
+    float: right;
+}
+.card-header .btn-link:not(.collapsed):after {
+    content: ' ▲';
+    float: right;
+}
+
+/* Estilos para botões de ação em tabelas */
+.action-buttons .btn {
+    margin-right: 5px;
+}
+.action-buttons .btn:last-child {
+    margin-right: 0;
+}
+
+/* Melhoria visual para tabelas */
+.table thead th {
+    background-color: #343a40; /* bg-dark */
+    color: white;
+    vertical-align: middle;
+}
+.table-hover tbody tr:hover {
+    background-color: #f1f1f1; /* Cor suave ao passar o mouse */
+}
+
+/* Ajustes gerais para espaçamento e alinhamento */
+h2 {
+    color: #333;
+    margin-bottom: 1.5rem;
+}
+hr {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    border: 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Ajustes para o Select2 dentro de um input-group (repetido, consolidar se necessário) */
+.input-group > .select2-container--bootstrap {
+    width: auto !important;
+    flex: 1 1 auto !important;
+}
+
+.input-group > .input-group-append > .btn {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+/* Adicionar estilos para dashboard cards se não existirem no seu arquivo original */
+.card-stats .card-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 150px;
+}
+.card-stats .stat-number {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #007bff;
+}
+.card-stats .stat-label {
+    font-size: 1.1rem;
+    color: #6c757d;
+}
+.card-deck .card { /* Bootstrap 4 uses card-deck, Bootstrap 5 might use row with g- property */
+    margin-bottom: 1.5rem;
+}
+
+/* Estilo para tabela de itens na página de nova venda */
+#itensVendaTable th, #itensVendaTable td {
+    vertical-align: middle;
+}
+#itensVendaTable .form-control-sm {
+    max-width: 80px; /* Para campos de quantidade */
+}
+
+/* Estilos para status de pagamento */
+.status-pago {
+    border: 1px solid green;
+    color: black;
+}
+
+.status-Pendente { background-color: #f6c23e; color: #5a5c69; border: 1px solid #f4b619;}
+.status-Pago { background-color: #1cc88a; color: #fff; border: 1px solid #169b6b;}
+.status-Vencido { background-color: #e74a3b; color: #fff; border: 1px solid #c82333;}
+.status-Cancelado { background-color: #858796; color: #fff; border: 1px solid #707280;}
+
+.status-recebido {
+    background-color: #1cc88a;
+    color: #fff;
+    border: 1px solid #169b6b;
+}

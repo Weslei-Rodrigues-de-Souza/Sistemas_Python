@@ -1,0 +1,57 @@
+<div class="modal fade" id="addGrupoModal" tabindex="-1" role="dialog" aria-labelledby="addGrupoModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('grupo_novo') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addGrupoModalLabel">Adicionar Novo Grupo</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="nome_grupo">Nome do Grupo*</label>
+                        <input type="text" class="form-control" id="nome_grupo" name="nome_grupo" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="descricao_grupo">Descrição</label>
+                        <textarea class="form-control" id="descricao_grupo" name="descricao_grupo" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Grupo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editGrupoModal" tabindex="-1" role="dialog" aria-labelledby="editGrupoModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form method="POST"> <input type="hidden" id="edit_grupo_id_hidden" name="edit_grupo_id_hidden_field">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editGrupoModalLabel">Editar Grupo</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                     <div class="form-group">
+                        <label for="edit_nome_grupo">Nome do Grupo*</label>
+                        <input type="text" class="form-control" id="edit_nome_grupo" name="edit_nome_grupo" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_descricao_grupo">Descrição</label>
+                        <textarea class="form-control" id="edit_descricao_grupo" name="edit_descricao_grupo" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

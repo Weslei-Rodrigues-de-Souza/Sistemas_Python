@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+
+{% block title %}Gestão Financeira{% endblock %}
+
+{% block head_extra %}
+<style>
+    .card-financeiro {
+        color: #fff;
+        border-radius: 0.35rem;
+    }
+    .card-a-receber { background-color: #1cc88a; } /* Verde Sucesso */
+    .card-a-pagar { background-color: #e74a3b; } /* Vermelho Perigo */
+    .card-recebido-mes { background-color: #4e73df; } /* Azul Primário */
+    .card-pago-mes { background-color: #f6c23e; } /* Amarelo Aviso */
+
+    .card-financeiro .card-body {
+        padding: 1.25rem;
+    }
+    .card-financeiro .stat-title {
+        font-weight: bold;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        margin-bottom: 0.25rem;
+    }
+    .card-financeiro .stat-value {
+        font-size: 1.75rem;
+        font-weight: bold;
+    }
+    .table-financeiro th, .table-financeiro td {
+        vertical-align: middle;
+    }
+    .text-receita { color: #1cc88a; }
+    .text-despesa { color: #e74a3b; }
+    .status-Pendente { background-color: #f6c23e; color: #5a5c69; border: 1px solid #f4b619;}
+    .status-Pago { background-color: #1cc88a; color: #fff; border: 1px solid #169b6b;}
+    .status-Vencido { background-color: #e74a3b; color: #fff; border: 1px solid #c82333;}
+    .status-Cancelado { background-color: #858796; color: #fff; border: 1px solid #707280;}
+
+    .form-inline .form-control, .form-inline .btn {
+        margin-right: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Financeiro - Fluxo de Caixa</h2>
+    <button type="button" class="btn btn-success" data-toggle="modal" data-target="#addLancamentoModal">
+        ➕ Novo Lançamento Manual
+    </button>
+</div>
+
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card card-a-receber shadow h-100 card-financeiro">
+            <div class="card-body">
+                <div class="stat-title">A Receber (Total Pendente)</div>
+                <div class="stat-value">R$ {{ "%.2f"|format(stats.a_receber_total if stats else 0.0)|replace('.', ',') }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card card-a-pagar shadow h-100 card-financeiro">
+            <div class="card-body">
+                <div class="stat-title">A Pagar (Total Pendente)</div>
+                <div class="stat-value">R$ {{ "%.2f"|format(stats.a_pagar_total if stats else 0.0)|replace('.', ',') }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card card-recebido-mes shadow h-100 card-financeiro">
+            <div class="card-body">
+                <div class="stat-title">Recebido (Mês Atual)</div>
+                <div class="stat-value">R$ {{ "%.2f"|format(stats.recebido_mes_atual if stats else 0.0)|replace('.', ',') }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card card-pago-mes shadow h-100 card-financeiro">
+            <div class="card-body">
+                <div class="stat-title">Pago (Mês Atual)</div>
+                <div class="stat-value">R$ {{ "%.2f"|format(stats.pago_mes_atual if stats else 0.0)|replace('.', ',') }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('financeiro_lista') }}" class="form-inline">
+            <label for="filtro_tipo" class="mr-2">Tipo:</label>
+            <select name="filtro_tipo" id="filtro_tipo" class="form-control form-control-sm">
+                <option value="Todos" {% if filtro_tipo_atual == 'Todos' or not filtro_tipo_atual %}selected{% endif %}>Todos</option>
+                <option value="Receita" {% if filtro_tipo_atual == 'Receita' %}selected{% endif %}>Receitas</option>
+                <option value="Despesa" {% if filtro_tipo_atual == 'Despesa' %}selected{% endif %}>Despesas</option>
+            </select>
+
+            <div class="col-md-3">
+                <div class="form-group">
+                    <label for="filtro_status">Status Pag.:</label>
+                    <select class="form-control" id="filtro_status" name="filtro_status">
+                        <option value="Todos" {% if filtro_status_atual == 'Todos' %}selected{% endif %}>Todos</option>
+                        <option value="Pendente" {% if filtro_status_atual == 'Pendente' %}selected{% endif %}>Pendente</option>
+                        <option value="Pago" {% if filtro_status_atual == 'Pago' %}selected{% endif %}>Pago</option>
+                        <option value="Recebido" {% if filtro_status_atual == 'Recebido' %}selected{% endif %}>Recebido</option>
+                        <option value="Vencido" {% if filtro_status_atual == 'Vencido' %}selected{% endif %}>Vencido</option>
+                        <option value="Cancelado" {% if filtro_status_atual == 'Cancelado' %}selected{% endif %}>Cancelado</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary ml-2">Filtrar</button>
+            <a href="{{ url_for('financeiro_lista') }}" class="btn btn-sm btn-outline-secondary ml-1">Limpar Filtros</a>
+        </form>
+    </div>
+</div>
+
+
+<div class="card shadow-sm">
+    <div class="card-header">
+        Registros Financeiros
+    </div>
+    <div class="card-body">
+        {% if lancamentos %}
+        <div class="table-responsive">
+            <table class="table table-hover table-sm datatable-financeiro table-financeiro" id="tabelaLancamentos">
+                <thead class="thead-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Descrição</th>
+                        <th>Venda ID</th>
+                        <th>Tipo</th>
+                        <th>Valor (R$)</th>
+                        <th>Data Venc.</th>
+                        <th>Status Pag.</th>
+                        <th>Data Pag.</th>
+                        <th>Forma Pag. Efet.</th>
+                        <th>Saldo (R$)</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for lanc in lancamentos %}
+                    <tr>
+                        <td>{{ lanc.id }}</td>
+                        <td>{{ lanc.descricao }}</td>
+                        <td>{% if lanc.venda_id %}<a href="{{ url_for('view_venda_page', venda_id=lanc.venda_id) }}" title="Ver Venda">#{{ lanc.venda_id }}</a>{% else %}N/A{% endif %}</td>
+                        <td class="{{ 'text-receita' if lanc.tipo == 'Receita' else 'text-despesa' }}">{{ lanc.tipo }}</td>
+                        <td class="{{ 'text-receita' if lanc.tipo == 'Receita' else 'text-despesa' }} font-weight-bold">
+                            {{ "+ " if lanc.tipo == 'Receita' else "- " }}
+                            {{ "%.2f"|format(lanc.valor)|replace('.', ',') }}
+                        </td>
+                        <td>{{ lanc.data_vencimento | date_input | datetime_display }}</td>
+                        <td>
+                            <span class="badge badge-pill p-2 {% if lanc.status_pagamento == 'Recebido' %}status-recebido{% else %}status-{{ lanc.status_pagamento.replace('í', 'i').replace('ú', 'u').replace('ç', 'c') }}{% endif %}">{{ lanc.status_pagamento }}</span>
+                        </td>
+                        <td>{{ lanc.data_pagamento | date_input | datetime_display if lanc.data_pagamento else 'N/A' }}</td>
+                        <td>{{ lanc.forma_pagamento_efetiva or 'N/A' }}</td>
+                        <td class="font-weight-bold {{ 'text-success' if (lanc.saldo_acumulado or 0) >= 0 else 'text-danger' }}">
+                            {{ "%.2f"|format(lanc.saldo_acumulado|default(0.0))|replace('.', ',') }}
+                        </td>
+                        <td class="action-buttons">
+                            {% if lanc.status_pagamento == 'Pendente' or lanc.status_pagamento == 'Vencido' %}
+                                <button type="button" class="btn btn-success btn-sm" data-toggle="modal" data-target="#marcarPagoModal" data-lancamento-id="{{ lanc.id }}" data-lancamento-valor="{{ lanc.valor }}">
+                                    Marcar como Pago
+                                </button>
+                            {% endif %}
+                            {% if lanc.venda_id and lanc.status_pagamento not in ['Pago', 'Recebido'] %}
+                                <button type="button" class="btn btn-sm btn-outline-primary" data-toggle="modal" data-target="#editarLancamentoModal" data-lancamento-id="{{ lanc.id }}">
+                                    Editar
+                                </button>
+                            {% endif %}
+                            {% if not lanc.venda_id %} {# Só permite excluir lançamentos manuais #}
+                                <form action="{{ url_for('financeiro_lancamento_excluir', lancamento_id=lanc.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja excluir este lançamento manual?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir Lançamento Manual">🗑️</button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">Nenhum lançamento financeiro encontrado para os filtros aplicados.</div>
+        {% endif %}
+    </div>
+</div>
+
+{% include '_modal_lancamento_financeiro.html' %}
+{% include '_modal_marcar_pago.html' %}
+{% include '_modal_editar_lancamento.html' %}
+
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+$(document).ready(function() {
+    // Inicializar DataTables para a tabela de lançamentos
+    // Não aplicar ordenação padrão para manter a ordem do fluxo de caixa (saldo linha a linha)
+    // A ordenação é feita no backend por data_vencimento
+    $('.datatable-financeiro').DataTable({
+        "language": { "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/pt-BR.json" },
+        "lengthMenu": [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
+        "pageLength": 25,
+        "responsive": true,
+        "order": [] // Desabilita a ordenação inicial automática pelo DataTables
+        // A ordenação já vem do backend (data_vencimento ASC)
+    });
+
+    // Lógica para o modal de marcar como pago
+    $('.btn-marcar-pago').on('click', function() {
+        var lancamentoId = $(this).data('lancamento-id');
+        var descricao = $(this).data('descricao-lancamento');
+        var valor = parseFloat($(this).data('valor-lancamento')).toFixed(2).replace('.', ',');
+
+        $('#marcarPagoModalLabel').text(`Confirmar Pagamento/Recebimento: ${descricao}`);
+        $('#marcar_pago_lancamento_id').val(lancamentoId);
+        $('#marcar_pago_valor_display').text(`Valor: R$ ${valor}`);
+        
+        // Resetar campos do modal de pagamento
+        $('#marcar_pago_data_pagamento').val(new Date().toISOString().slice(0,10)); // Data atual
+        $('#marcar_pago_forma_pagamento_efetiva').val(''); // Limpa forma de pagamento
+
+        $('#marcarPagoModal').modal('show');
+    });
+
+    // Limpar formulário de novo lançamento ao fechar
+    $('#addLancamentoModal').on('hidden.bs.modal', function () {
+        $(this).find('form')[0].reset();
+        $('#status_pagamento_lancamento').val('Pendente'); // Default
+        $('#data_pagamento_lancamento_div').hide();
+    });
+
+    // Mostrar/ocultar campo de data de pagamento no modal de novo lançamento
+    $('#status_pagamento_lancamento').on('change', function() {
+        if ($(this).val() === 'Pago') {
+            $('#data_pagamento_lancamento_div').show();
+            if (!$('#data_pagamento_lancamento').val()){ // Se estiver vazio, preenche com data atual
+                 $('#data_pagamento_lancamento').val(new Date().toISOString().slice(0,10));
+            }
+        } else {
+            $('#data_pagamento_lancamento_div').hide();
+            $('#data_pagamento_lancamento').val(''); // Limpa se não for pago
+        }
+    }).trigger('change'); // Dispara no load para estado inicial
+
+    $('#marcarPagoModal').on('show.bs.modal', function (event) {
+      var button = $(event.relatedTarget); // Botão que acionou o modal
+      var lancamentoId = button.data('lancamento-id'); // Extrai a informação do atributo data-lancamento-id
+      var lancamentoValor = button.data('lancamento-valor');
+
+      var modal = $(this);
+      modal.find('#marcar_pago_lancamento_id').val(lancamentoId); // Define o valor do campo hidden
+      modal.find('#marcar_pago_valor_display').text('Valor: R$ ' + lancamentoValor);
+
+      // Define a action do formulário dinamicamente
+      modal.find('#formMarcarPago').attr('action', '/financeiro/lancamento/update_status/' + lancamentoId);
+    });
+
+    $('#editarLancamentoModal').on('show.bs.modal', function (event) {
+        var button = $(event.relatedTarget);
+        var lancamentoId = button.data('lancamento-id');
+        var modal = $(this);
+
+        // Faça uma requisição AJAX para obter os dados do lançamento
+        $.ajax({
+            url: '/financeiro/lancamento/json/' + lancamentoId,
+            type: 'GET',
+            success: function (data) {
+                modal.find('#editar_lancamento_id').val(lancamentoId);
+                modal.find('#editar_descricao_lancamento').val(data.descricao);
+                modal.find('#editar_tipo_lancamento').val(data.tipo);
+                modal.find('#editar_valor_lancamento').val(data.valor);
+                modal.find('#editar_data_vencimento_lancamento').val(data.data_vencimento);
+                modal.find('#editar_forma_pagamento_efetiva_lancamento').val(data.forma_pagamento_efetiva);
+            }
+        });
+
+        // Defina a action do formulário dinamicamente
+        modal.find('#formEditarLancamento').attr('action', '/financeiro/lancamento/editar/' + lancamentoId);
+    })
+});
+</script>
+{% endblock %}

@@ -1,0 +1,43 @@
+<div class="modal fade" id="marcarPagoModal" tabindex="-1" role="dialog" aria-labelledby="marcarPagoModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            {# A action do formulário será definida dinamicamente via JavaScript #}
+            <form method="POST" id="formMarcarPago"> 
+                <input type="hidden" name="marcar_pago_lancamento_id" id="marcar_pago_lancamento_id"> {# O ID do lançamento é passado aqui #}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="marcarPagoModalLabel">Confirmar Pagamento/Recebimento</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p id="marcar_pago_valor_display" class="font-weight-bold"></p>
+                    <div class="form-group">
+                        <label for="marcar_pago_data_pagamento_input">Data de Pagamento/Recebimento*</label>
+                        {# Nome do campo simplificado #}
+                        <input type="date" class="form-control" id="marcar_pago_data_pagamento_input" name="data_pagamento_lancamento" required value="{{ now.strftime('%Y-%m-%d') }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="marcar_pago_forma_pagamento_efetiva_input">Forma de Pagamento Efetiva*</label>
+                        {# Nome do campo simplificado #}
+                        <select class="form-control" id="marcar_pago_forma_pagamento_efetiva_input" name="forma_pagamento_efetiva_lancamento" required>
+                            <option value="">Selecione...</option>
+                            <option value="Dinheiro">Dinheiro</option>
+                            <option value="Pix">Pix</option>
+                            <option value="Cartão de Crédito">Cartão de Crédito</option>
+                            <option value="Cartão de Débito">Cartão de Débito</option>
+                            <option value="Transferência Bancária">Transferência Bancária</option>
+                            <option value="Outro">Outro</option>
+                        </select>
+                    </div>
+                     {# O novo status é enviado para a rota #}
+                     <input type="hidden" name="status_pagamento_lancamento" value="Pago">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Confirmar Pagamento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

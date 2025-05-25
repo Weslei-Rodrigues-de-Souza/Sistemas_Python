@@ -1,0 +1,73 @@
+<div class="modal fade" id="addLancamentoModal" tabindex="-1" role="dialog" aria-labelledby="addLancamentoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('financeiro_lancamento_novo') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addLancamentoModalLabel">Novo Lançamento Financeiro Manual</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="descricao_lancamento">Descrição*</label>
+                        <input type="text" class="form-control" id="descricao_lancamento" name="descricao_lancamento" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label for="tipo_lancamento">Tipo*</label>
+                            <select class="form-control" id="tipo_lancamento" name="tipo_lancamento" required>
+                                <option value="Receita">Receita</option>
+                                <option value="Despesa">Despesa</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label for="valor_lancamento">Valor (R$)*</label>
+                            <input type="number" step="0.01" min="0.01" class="form-control" id="valor_lancamento" name="valor_lancamento" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label for="data_vencimento_lancamento">Data de Vencimento*</label>
+                            <input type="date" class="form-control" id="data_vencimento_lancamento" name="data_vencimento_lancamento" required value="{{ now.strftime('%Y-%m-%d') }}">
+                        </div>
+                         <div class="form-group col-md-6">
+                            <label for="status_pagamento_lancamento">Status do Pagamento*</label>
+                            <select class="form-control" id="status_pagamento_lancamento" name="status_pagamento_lancamento" required>
+                                <option value="Pendente" selected>Pendente</option>
+                                <option value="Pago">Pago</option>
+                                <option value="Cancelado">Cancelado</option>
+                            </select>
+                        </div>
+                    </div>
+                     <div class="form-row" id="data_pagamento_lancamento_div" style="display:none;">
+                        <div class="form-group col-md-6">
+                            <label for="data_pagamento_lancamento">Data de Pagamento/Recebimento</label>
+                            <input type="date" class="form-control" id="data_pagamento_lancamento" name="data_pagamento_lancamento">
+                        </div>
+                         <div class="form-group col-md-6">
+                            <label for="forma_pagamento_efetiva_lancamento">Forma de Pagamento Efetiva</label>
+                            <select class="form-control" id="forma_pagamento_efetiva_lancamento" name="forma_pagamento_efetiva_lancamento">
+                                <option value="">Selecione (se Pago)...</option>
+                                <option value="Dinheiro">Dinheiro</option>
+                                <option value="Pix">Pix</option>
+                                <option value="Cartão de Crédito">Cartão de Crédito</option>
+                                <option value="Cartão de Débito">Cartão de Débito</option>
+                                <option value="Transferência Bancária">Transferência Bancária</option>
+                                <option value="Outro">Outro</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="observacao_lancamento">Observação</label>
+                        <textarea class="form-control" id="observacao_lancamento" name="observacao_lancamento" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Lançamento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

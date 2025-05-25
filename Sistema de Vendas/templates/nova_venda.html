@@ -1,0 +1,315 @@
+{% extends "base.html" %}
+
+{% block title %}Nova Venda{% endblock %}
+
+{% block head_extra %}
+<style>
+    #itensVendaTable td, #itensVendaTable th { text-align: center; vertical-align: middle; }
+    .item-select { width: 100% !important; } /* Make select2 take full width of td */
+    .quantidade-input-venda { width: 80px !important; }
+    .form-group-condensed { margin-bottom: 0.5rem; } /* Less space between item row selects */
+</style>
+{% endblock %}
+
+{% block content %}
+<h2>Registrar Nova Venda</h2>
+<form method="POST" action="{{ url_for('nova_venda_page') }}" id="formNovaVenda">
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">
+            Dados da Venda
+        </div>
+        <div class="card-body">
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <label for="cliente_id_venda">Cliente</label>
+                    <select class="form-control select2-basic" id="cliente_id_venda" name="cliente_id_venda">
+                        <option value="None">Consumidor Final (Nenhum)</option>
+                        {% for cliente in clientes %}
+                        <option value="{{ cliente.id }}">{{ cliente.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group col-md-6">
+                    <label for="data_venda">Data da Venda</label>
+                    <input type="datetime-local" class="form-control" id="data_venda" name="data_venda" value="{{ now.strftime('%Y-%m-%dT%H:%M') }}">
+                </div>
+            </div>
+             <div class="form-group">
+                <label for="observacao_venda">Observações da Venda</label>
+                <textarea class="form-control" id="observacao_venda" name="observacao_venda" rows="2"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            Itens da Venda
+            <button type="button" class="btn btn-sm btn-info" id="btnAdicionarItemVenda">➕ Adicionar Item</button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="itensVendaTable">
+                    <thead class="thead-light">
+                        <tr>
+                            <th style="width: 40%;">Produto (Grupo > Categoria > Produto)</th>
+                            <th style="width: 10%;">Qtd.</th>
+                            <th style="width: 15%;">Preço Unit. (R$)</th>
+                            <th style="width: 15%;">Subtotal (R$)</th>
+                            <th style="width: 10%;">Estoque</th>
+                            <th style="width: 10%;">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        </tbody>
+                    <tfoot>
+                        <tr>
+                            <th colspan="3" class="text-right">Total Geral (R$):</th>
+                            <th id="totalGeralVenda" class="text-center">0.00</th>
+                            <th colspan="2"></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+             <input type="hidden" name="itens_venda_json" id="itens_venda_json">
+        </div>
+    </div>
+
+    <div class="text-right">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Cancelar</a>
+        <button type="submit" class="btn btn-success">Finalizar Venda</button>
+    </div>
+</form>
+
+<template id="templateLinhaItemVenda">
+    <tr>
+        <td>
+            <div class="form-group form-group-condensed">
+                <select class="form-control item-select item-grupo-select" name="item_grupo_id[]">
+                    <option value="">Selecione Grupo...</option>
+                    {% for grupo in grupos %} {# 'grupos' é passado pela rota nova_venda_page #}
+                        <option value="{{ grupo.id }}">{{ grupo.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group form-group-condensed">
+                <select class="form-control item-select item-categoria-select" name="item_categoria_id[]" disabled>
+                    <option value="">Selecione Grupo primeiro...</option>
+                </select>
+            </div>
+            <div class="form-group form-group-condensed">
+                <select class="form-control item-select item-produto-select" name="item_produto_id[]" required disabled>
+                    <option value="">Selecione Categoria primeiro...</option>
+                </select>
+            </div>
+        </td>
+        <td><input type="number" class="form-control quantidade-input-venda" name="item_quantidade[]" value="1" min="1" required></td>
+        <td class="item-preco-unitario text-center">0.00</td>
+        <td class="item-subtotal text-center">0.00</td>
+        <td class="item-estoque-disponivel text-center">-</td>
+        <td><button type="button" class="btn btn-sm btn-danger btn-remover-item-venda">🗑️</button></td>
+    </tr>
+</template>
+
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+$(document).ready(function() {
+    // Inicializar Select2 para o select de cliente
+    if ($.fn.select2) {
+        $('#cliente_id_venda').select2({ theme: 'bootstrap', language: "pt-BR", placeholder: "Selecione um cliente...", allowClear: true });
+    }
+
+    function inicializarSelect2ParaLinha(rowElement) {
+        $(rowElement).find('.item-select').each(function() {
+            var $this = $(this);
+            var placeholderText = $this.find('option:first').text();
+            if ($.fn.select2) {
+                $this.select2({
+                    theme: 'bootstrap',
+                    language: "pt-BR",
+                    placeholder: placeholderText,
+                    // dropdownParent: $this.closest('td') // Pode causar problemas com posicionamento, testar
+                });
+            }
+        });
+    }
+
+    function calcularSubtotal($row) {
+        var quantidade = parseInt($row.find('.quantidade-input-venda').val() || 0);
+        var precoUnitarioText = $row.find('.item-preco-unitario').text().replace(',', '.'); // Handle comma decimal
+        var precoUnitario = parseFloat(precoUnitarioText || 0);
+        var subtotal = quantidade * precoUnitario;
+        $row.find('.item-subtotal').text(subtotal.toFixed(2).replace('.', ',')); // Display with comma
+        calcularTotalGeral();
+    }
+
+    function calcularTotalGeral() {
+        var totalGeral = 0;
+        $('#itensVendaTable tbody tr').each(function() {
+            var subtotalText = $(this).find('.item-subtotal').text().replace(',', '.'); // Handle comma decimal
+            totalGeral += parseFloat(subtotalText || 0);
+        });
+        $('#totalGeralVenda').text(totalGeral.toFixed(2).replace('.', ',')); // Display with comma
+    }
+
+    $('#btnAdicionarItemVenda').on('click', function() {
+        var template = $('#templateLinhaItemVenda').html();
+        $('#itensVendaTable tbody').append(template);
+        var newRow = $('#itensVendaTable tbody tr:last');
+        inicializarSelect2ParaLinha(newRow);
+    });
+
+    $('#itensVendaTable').on('change', '.item-grupo-select', function() {
+        var grupoId = $(this).val();
+        var $row = $(this).closest('tr');
+        var $categoriaSelect = $row.find('.item-categoria-select');
+        var $produtoSelect = $row.find('.item-produto-select');
+
+        $categoriaSelect.empty().append('<option value="">Carregando...</option>').prop('disabled', true);
+        $produtoSelect.empty().append('<option value="">Selecione Categoria...</option>').prop('disabled', true);
+        $row.find('.item-preco-unitario').text('0.00');
+        $row.find('.item-estoque-disponivel').text('-');
+        calcularSubtotal($row);
+
+        if (grupoId) {
+            $.ajax({
+                url: `/api/categorias_por_grupo/${grupoId}`,
+                method: 'GET',
+                success: function(categorias) {
+                    $categoriaSelect.empty().append('<option value="">Selecione Categoria...</option>');
+                    if (categorias && categorias.length > 0) {
+                        $.each(categorias, function(i, categoria) {
+                            $categoriaSelect.append($('<option>', { value: categoria.id, text: categoria.nome }));
+                        });
+                        $categoriaSelect.prop('disabled', false);
+                    } else {
+                        $categoriaSelect.append('<option value="">Nenhuma categoria</option>');
+                    }
+                    if ($.fn.select2) { $categoriaSelect.trigger('change.select2'); } // Update Select2
+                },
+                error: function() { showToast("Erro", "Erro ao carregar categorias.", false); $categoriaSelect.empty().append('<option value="">Erro</option>');}
+            });
+        } else {
+            if ($.fn.select2) { $categoriaSelect.trigger('change.select2'); }
+        }
+    });
+
+    $('#itensVendaTable').on('change', '.item-categoria-select', function() {
+        var categoriaId = $(this).val();
+        var $row = $(this).closest('tr');
+        var $produtoSelect = $row.find('.item-produto-select');
+
+        $produtoSelect.empty().append('<option value="">Carregando...</option>').prop('disabled', true);
+        $row.find('.item-preco-unitario').text('0.00');
+        $row.find('.item-estoque-disponivel').text('-');
+        calcularSubtotal($row);
+
+        if (categoriaId) {
+            $.ajax({
+                url: `/api/produtos_por_categoria/${categoriaId}`,
+                method: 'GET',
+                success: function(produtos) {
+                    $produtoSelect.empty().append('<option value="">Selecione Produto...</option>');
+                    if (produtos && produtos.length > 0) {
+                        $.each(produtos, function(i, produto) {
+                            // Only add products with stock > 0 for sale
+                            if (produto.quantidade_estoque > 0) {
+                                $produtoSelect.append($('<option>', {
+                                    value: produto.id,
+                                    text: produto.nome,
+                                    'data-preco': produto.preco_venda,
+                                    'data-estoque': produto.quantidade_estoque,
+                                    'data-unidade': produto.unidade_medida || 'Un.'
+                                }));
+                            }
+                        });
+                        if ($produtoSelect.find('option').length <= 1) { // Only the placeholder is there
+                             $produtoSelect.append('<option value="" disabled>Nenhum produto com estoque</option>');
+                        }
+                        $produtoSelect.prop('disabled', false);
+                    } else {
+                        $produtoSelect.append('<option value="">Nenhum produto</option>');
+                    }
+                    if ($.fn.select2) { $produtoSelect.trigger('change.select2'); }
+                },
+                error: function() { showToast("Erro", "Erro ao carregar produtos.", false); $produtoSelect.empty().append('<option value="">Erro</option>');}
+            });
+        } else {
+             if ($.fn.select2) { $produtoSelect.trigger('change.select2'); }
+        }
+    });
+
+    $('#itensVendaTable').on('change', '.item-produto-select', function() {
+        var selectedOption = $(this).find('option:selected');
+        var $row = $(this).closest('tr');
+        var preco = parseFloat(selectedOption.data('preco') || 0);
+        var estoque = parseInt(selectedOption.data('estoque') || 0);
+        // var unidade = selectedOption.data('unidade') || 'Un.';
+
+        $row.find('.item-preco-unitario').text(preco.toFixed(2).replace('.', ','));
+        $row.find('.item-estoque-disponivel').text(estoque);
+        $row.find('.quantidade-input-venda').attr('max', estoque).val(1); // Reset quantity to 1 and set max
+        calcularSubtotal($row);
+    });
+
+    $('#itensVendaTable').on('input change', '.quantidade-input-venda', function() {
+        var $row = $(this).closest('tr');
+        var quantidade = parseInt($(this).val() || 0);
+        var estoqueMax = parseInt($(this).attr('max') || 0);
+
+        if (quantidade > estoqueMax && estoqueMax > 0) { // Only cap if there is stock
+            $(this).val(estoqueMax);
+            showToast("Atenção", "Quantidade excede o estoque disponível.", null);
+        }
+        if (quantidade < 1 && $(this).val() !== "") {
+            $(this).val(1);
+        }
+        calcularSubtotal($row);
+    });
+
+    $('#itensVendaTable').on('click', '.btn-remover-item-venda', function() {
+        $(this).closest('tr').remove();
+        calcularTotalGeral();
+    });
+
+    $('#formNovaVenda').on('submit', function(e) {
+        var itensArray = [];
+        var formValido = true;
+        if ($('#itensVendaTable tbody tr').length === 0) {
+            showToast("Atenção", "Adicione pelo menos um item à venda.", null);
+            e.preventDefault();
+            return;
+        }
+
+        $('#itensVendaTable tbody tr').each(function() {
+            var $row = $(this);
+            var produtoId = $row.find('.item-produto-select').val();
+            var quantidade = parseInt($row.find('.quantidade-input-venda').val());
+            var precoUnitarioText = $row.find('.item-preco-unitario').text().replace(',', '.');
+            var precoUnitario = parseFloat(precoUnitarioText);
+            var subtotalText = $row.find('.item-subtotal').text().replace(',', '.');
+            var subtotal = parseFloat(subtotalText);
+
+            if (!produtoId || produtoId === "" || isNaN(quantidade) || quantidade <= 0 || isNaN(precoUnitario)) {
+                showToast("Erro", "Verifique os itens da venda. Produto, quantidade e preço são obrigatórios e válidos.", false);
+                formValido = false;
+                return false; 
+            }
+            itensArray.push({
+                produtoId: produtoId,
+                quantidade: quantidade,
+                precoUnitario: precoUnitario,
+                subtotal: subtotal
+            });
+        });
+
+        if (!formValido) {
+            e.preventDefault();
+            return;
+        }
+        $('#itens_venda_json').val(JSON.stringify(itensArray));
+    });
+});
+</script>
+{% endblock %}

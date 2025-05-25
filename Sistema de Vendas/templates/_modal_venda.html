@@ -1,0 +1,146 @@
+<div class="modal fade" id="vendaModal" tabindex="-1" role="dialog" aria-labelledby="vendaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('venda_salvar') }}" id="formVendaModal">
+                <input type="hidden" name="venda_id_modal" id="venda_id_modal">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="vendaModalLabel">Registrar Nova Venda</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header">Dados da Venda e Pagamento</div>
+                        <div class="card-body">
+                            <div class="form-row">
+                                <div class="form-group col-md-6">
+                                    <label for="cliente_id_venda_modal">Cliente</label>
+                                    <select class="form-control select2-basic-modal" id="cliente_id_venda_modal" name="cliente_id_venda_modal" style="width: 100%;">
+                                        <option value="None">Consumidor Final (Nenhum)</option>
+                                        {% for cliente in clientes %} {# clientes must be passed to vendas_lista_page #}
+                                        <option value="{{ cliente.id }}">{{ cliente.nome }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-6">
+                                    <label for="data_venda_modal">Data da Venda</label>
+                                    <input type="datetime-local" class="form-control" id="data_venda_modal" name="data_venda_modal" value="{{ now.strftime('%Y-%m-%dT%H:%M') }}">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="observacao_venda_modal">Observações da Venda</label>
+                                <textarea class="form-control" id="observacao_venda_modal" name="observacao_venda_modal" rows="2"></textarea>
+                            </div>
+
+                            <hr>
+                            <h6>Pagamento</h6>
+                            <div class="form-row">
+                                <div class="form-group col-md-6"> {# Ajustado de col-md-4 para col-md-6 #}
+                                    <label for="forma_pagamento_modal">Forma de Pagamento*</label>
+                                    <select class="form-control" id="forma_pagamento_modal" name="forma_pagamento_modal" required>
+                                        <option value="">Selecione...</option>
+                                        <option value="Dinheiro">Dinheiro</option>
+                                        <option value="Pix">Pix</option>
+                                        <option value="Cartão de Crédito">Cartão de Crédito</option>
+                                        <option value="Cartão de Débito">Cartão de Débito</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div id="detalhes_cartao_credito_modal" style="display: none;">
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label for="numero_parcelas_modal">Número de Parcelas</label>
+                                        <select class="form-control" id="numero_parcelas_modal" name="numero_parcelas_modal">
+                                            {% for i in range(1, 13) %}
+                                            <option value="{{ i }}">{{ i }}x</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <label for="periodo_pagamento_parcelas_modal">Período de Pagamento</label>
+                                        <select class="form-control" id="periodo_pagamento_parcelas_modal" name="periodo_pagamento_parcelas_modal">
+                                            <option value="">N/A (para 1x)</option>
+                                            <option value="Diário">Diário</option>
+                                            <option value="Semanal">Semanal</option>
+                                            <option value="Quinzenal">Quinzenal</option>
+                                            <option value="Mensal">Mensal</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card shadow-sm">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            Itens da Venda
+                            <button type="button" class="btn btn-sm btn-info" id="btnAdicionarItemVendaModal">➕ Adicionar Item</button>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-bordered" id="itensVendaTableModal">
+                                    <thead class="thead-light">
+                                        <tr>
+                                            <th style="width: 35%;">Produto (Grupo > Categoria > Produto)</th>
+                                            <th style="width: 10%;">Qtd.</th>
+                                            <th style="width: 15%;">Preço Unit. (R$)</th>
+                                            <th style="width: 15%;">Subtotal (R$)</th>
+                                            <th style="width: 15%;">Estoque Disp.</th>
+                                            <th style="width: 10%;">Ação</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <th colspan="3" class="text-right">Total Geral (R$):</th>
+                                            <th id="totalGeralVendaModal" class="text-center">0,00</th>
+                                            <th colspan="2"></th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                            <input type="hidden" name="itens_venda_json_modal" id="itens_venda_json_modal">
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btnSalvarRascunhoVenda">Salvar Rascunho</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<template id="templateLinhaItemVendaModal">
+    <tr>
+        <td>
+            <div class="form-group form-group-condensed">
+                <select class="form-control item-select item-grupo-select-modal" name="item_grupo_id_modal[]" style="width: 100%;">
+                    <option value="">Selecione Grupo...</option>
+                    {% for grupo in grupos %} {# grupos must be passed to vendas_lista_page #}
+                        <option value="{{ grupo.id }}">{{ grupo.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group form-group-condensed">
+                <select class="form-control item-select item-categoria-select-modal" name="item_categoria_id_modal[]" style="width: 100%;" disabled>
+                    <option value="">Selecione Grupo...</option>
+                </select>
+            </div>
+            <div class="form-group form-group-condensed">
+                <select class="form-control item-select item-produto-select-modal" name="item_produto_id_modal[]" style="width: 100%;" required disabled>
+                    <option value="">Selecione Categoria...</option>
+                </select>
+            </div>
+        </td>
+        <td><input type="number" class="form-control quantidade-input-venda-modal" name="item_quantidade_modal[]" value="1" min="1" required></td>
+        <td class="item-preco-unitario-modal text-center">0,00</td>
+        <td class="item-subtotal-modal text-center">0,00</td>
+        <td class="item-estoque-disponivel-modal text-center">-</td>
+        <td><button type="button" class="btn btn-sm btn-danger btn-remover-item-venda-modal">🗑️</button></td>
+    </tr>
+</template>
