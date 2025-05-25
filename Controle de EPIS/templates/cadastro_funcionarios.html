@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Cadastro de Funcionários{% endblock %}
+
+{% block head %}
+  {{ super() }}
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>Cadastro de Funcionários</h2>
+    <form id="formFuncionario">
+        <div class="form-row">
+            <div class="form-group col-md-6">
+                <label for="nome">Nome:</label>
+                <input type="text" class="form-control" id="nome" name="nome">
+            </div>
+            <div class="form-group col-md-3">
+                <label for="cpf">CPF:</label>
+                <input type="text" class="form-control" id="cpf" name="cpf">
+            </div>
+            <div class="form-group col-md-3">
+                <label for="rg">RG:</label>
+                <input type="text" class="form-control" id="rg" name="rg">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group col-md-3">
+                <label for="ctps">CTPS:</label>
+                <input type="text" class="form-control" id="ctps" name="ctps">
+            </div>
+            <div class="form-group col-md-3">
+                <label for="serie">Série:</label>
+                <input type="text" class="form-control" id="serie" name="serie">
+            </div>
+            <div class="form-group col-md-6">
+                <label for="pis">PIS:</label>
+                <input type="text" class="form-control" id="pis" name="pis">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group col-md-4">
+                <label for="departamento">Departamento:</label>
+                <select id="departamento" name="departamento" class="form-control">
+                    <option selected>Escolher...</option>
+                    </select>
+            </div>
+            <div class="form-group col-md-4">
+                <label for="funcao">Função:</label>
+                 <select id="funcao" name="funcao" class="form-control">
+                    <option selected>Escolher...</option>
+                    </select>
+            </div>
+             <div class="form-group col-md-4">
+                <label for="setor">Setor:</label>
+                 <select id="setor" name="setor" class="form-control">
+                    <option selected>Escolher...</option>
+                    </select>
+            </div>
+        </div>
+         <div class="form-row">
+            <div class="form-group col-md-6">
+                <label for="data_admissao">Data Admissão:</label>
+                <input type="date" class="form-control" id="data_admissao" name="data_admissao">
+            </div>
+            <div class="form-group col-md-6">
+                <label for="treinamento_em">Treinamento em:</label>
+                <input type="text" class="form-control" id="treinamento_em" name="treinamento_em">
+            </div>
+        </div>
+        <div class="form-group">
+             <button type="submit" class="btn btn-primary">Gravar</button>
+             <button type="button" class="btn btn-secondary">Limpar</button>
+             <button type="button" class="btn btn-danger">Óculos Proteção</button>
+             <button type="button" class="btn btn-danger">Ativo</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
