@@ -50,6 +50,15 @@ class DatabaseManager:
             if conn: # Garante que a conexão seja sempre fechada
                 conn.close()
 
+    def add_column_to_table(self, table_name, column_name, column_definition):
+        """Adiciona uma coluna a uma tabela se ela não existir."""
+        # Check if column exists
+        cursor = self._get_connection().cursor()
+        cursor.execute(f"PRAGMA table_info({table_name});")
+        columns = [column[1] for column in cursor.fetchall()]
+        if column_name not in columns:
+            self.execute_query(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition};")
+
     def create_tables(self):
         """Cria todas as tabelas necessárias se elas ainda não existirem."""
         queries = [
@@ -169,6 +178,7 @@ class DatabaseManager:
         ]
         for query_stmt in queries:
             self.execute_query(query_stmt)
+        self.add_column_to_table('lancamentos_financeiros', 'numero_parcela_atual', 'INTEGER DEFAULT 1')
         print("Tables checked/created successfully.")
 
     # --- Imagens de Produto ---
@@ -527,7 +537,20 @@ class DatabaseManager:
             if conn: conn.close()
 
     def get_all_vendas(self):
-        query = "SELECT v.*, c.nome as cliente_nome FROM vendas v LEFT JOIN clientes c ON v.cliente_id = c.id ORDER BY v.data_venda DESC"
+        query = """
+        SELECT
+        v.*,
+        c.nome as cliente_nome,
+        (SELECT COUNT(*) FROM lancamentos_financeiros lf WHERE lf.venda_id = v.id AND lf.tipo = 'Receita') as total_parcelas,
+        (SELECT COUNT(*) FROM lancamentos_financeiros lf WHERE lf.venda_id = v.id AND lf.tipo = 'Receita' AND lf.status_pagamento = 'Pago') as parcelas_pagas,
+        (SELECT COUNT(*) FROM lancamentos_financeiros lf WHERE lf.venda_id = v.id AND lf.tipo = 'Receita' AND lf.status_pagamento IN ('Pendente', 'Vencido')) as parcelas_em_aberto
+        FROM
+        vendas v
+        LEFT JOIN
+        clientes c ON v.cliente_id = c.id
+        ORDER BY
+        v.data_venda DESC
+        """
         return self.execute_query(query, fetch_all=True)
 
     def get_venda_by_id(self, venda_id):
@@ -536,7 +559,7 @@ class DatabaseManager:
 
     def get_venda_itens_by_venda_id(self, venda_id):
         query = "SELECT vi.*, p.nome as produto_nome, p.unidade_medida as produto_unidade FROM venda_itens vi JOIN produtos p ON vi.produto_id = p.id WHERE vi.venda_id = ?"
-        return self.execute_query(query, (venda_id,), fetch_all=True)
+        return self.execute_query(query, (venda_id,), fetch_all=True) or []
 
     # --- Lançamentos Financeiros ---
     def add_lancamento_financeiro(self, data, conn=None):

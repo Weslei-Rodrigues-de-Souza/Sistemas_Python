@@ -13,7 +13,7 @@
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 fixed-top">
-        <a class="navbar-brand" href="{{ url_for('dashboard') }}">Venda de Jogos</a>
+        <a class="navbar-brand" href="{{ url_for('dashboard') }}">ANTEC</a>
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
@@ -38,15 +38,10 @@
                 <li class="nav-item {% if request.endpoint == 'estoque_entradas' %}active{% endif %}">
                     <a class="nav-link" href="{{ url_for('estoque_entradas') }}">Entrada Estoque</a>
                 </li>
-                 <li class="nav-item dropdown {% if request.endpoint == 'listar_vendas_page' %}active{% endif %}">
-                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownVendas" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                        Vendas
-                    </a>
-                    <div class="dropdown-menu" aria-labelledby="navbarDropdownVendas">
-                        <a class="dropdown-item {% if request.endpoint == 'vendas_lista_page' %}active{% endif %}" href="{{ url_for('vendas_lista_page') }}">Nova Venda (Modal)</a>
-                        <a class="dropdown-item {% if request.endpoint == 'vendas_lista_page' %}active{% endif %}" href="{{ url_for('vendas_lista_page') }}">Listar Vendas</a>
-                    </div>
-                </li>
+                 <li class="nav-item {% if request.endpoint == 'vendas_lista_page' %}active{% endif %}">
+                    <a class="nav-link" href="{{ url_for('vendas_lista_page') }}">
+                        Vendas</a>
+                 </li>
                 <li class="nav-item {% if request.endpoint == 'financeiro_lista' %}active{% endif %}">
                     <a class="nav-link" href="{{ url_for('financeiro_lista') }}">Financeiro</a>
                 </li>
