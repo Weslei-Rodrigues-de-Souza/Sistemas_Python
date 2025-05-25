@@ -3,6 +3,7 @@
 {% block title %}Dashboard - Sistema de Vendas de Jogos{% endblock %}
 
 {% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
     .card-stats .card-body, .card-financeiro .card-body {
         display: flex;
@@ -177,7 +178,33 @@
         </div>
     </div>
     <hr>
-    
+
+    <h4 class="mb-3 mt-4">Vendas Agregadas por Período</h4>
+    <div class="row mb-4">
+        <div class="col-md-4 offset-md-4">
+            <div class="form-group">
+                <label for="periodSelector">Visualizar por:</label>
+                <select class="form-control" id="periodSelector">
+                    <option value="/api/vendas/last_7_days">Últimos 7 Dias</option>
+                    <option value="/api/vendas/last_30_days">Últimos 30 Dias</option>
+                    <option value="/api/vendas/monthly">Mensal (Ano Atual)</option>
+                    <option value="/api/vendas/quarterly">Trimestral (Últimos 4)</option>
+                    <option value="/api/vendas/semiannually">Semestral (Últimos 2)</option>
+                    <option value="/api/vendas/annually">Anual (Últimos 5)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <canvas id="vendasChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="row mt-4">
         <div class="col-md-6 mb-4">
             <h4>Produtos com Baixo Estoque (<= 5)</h4>
@@ -219,4 +246,89 @@
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Recupera os dados iniciais passados pelo Flask (vendas dos últimos 7 dias)
+        const initialVendasData = JSON.parse('{{ vendas_data | safe }}');
+
+        let vendasChartInstance = null; // Para manter a instância do gráfico
+
+        // Função para renderizar o gráfico
+        function renderChart(data) {
+            const ctx = document.getElementById('vendasChart').getContext('2d');
+
+            // Destroi o gráfico existente, se houver
+            if (vendasChartInstance) {
+                vendasChartInstance.destroy();
+            }
+
+            const labels = data.map(item => item.periodo);
+            const values = data.map(item => item.total_vendas);
+
+            vendasChartInstance = new Chart(ctx, {
+                type: 'bar', // Pode ser 'line' ou 'bar'
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Total de Vendas (R$)',
+                        data: values,
+                        backgroundColor: 'rgba(78, 115, 223, 0.8)',
+                        borderColor: 'rgba(78, 115, 223, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value, index, values) {
+                                    return 'R$ ' + value.toFixed(2).replace('.', ',');
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                             callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': R$ ' + context.raw.toFixed(2).replace('.', ',');
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Renderiza o gráfico com os dados iniciais
+        renderChart(initialVendasData);
+
+        // Adiciona ouvinte de evento ao seletor de período
+        const periodSelector = document.getElementById('periodSelector');
+        periodSelector.addEventListener('change', function() {
+            const selectedPeriodUrl = this.value;
+
+            fetch(selectedPeriodUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        console.error('Erro ao buscar dados de vendas:', data.error);
+                        // Opcional: exibir uma mensagem de erro para o usuário
+                    } else {
+                        renderChart(data);
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro na requisição Fetch:', error);
+                    // Opcional: exibir uma mensagem de erro para o usuário
+                });
+        });
+    });
+</script>
 {% endblock %}

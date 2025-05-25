@@ -1,7 +1,7 @@
 import sqlite3
 import datetime
 import os
-from decimal import Decimal, ROUND_HALF_UP # Import para cálculos monetários precisos
+from decimal import Decimal, ROUND_HALF_UP
 
 DB_NAME = "sales_system.db"
 
@@ -177,8 +177,6 @@ class DatabaseManager:
             """
         ]
         for query_stmt in queries:
- self.execute_query(query_stmt)
- self.add_column_to_table('lancamentos_financeiros', 'numero_parcela_atual', 'INTEGER DEFAULT 1')
             self.execute_query(query_stmt)
         self.add_column_to_table('lancamentos_financeiros', 'numero_parcela_atual', 'INTEGER DEFAULT 1')
         print("Tables checked/created successfully.")
@@ -579,8 +577,64 @@ class DatabaseManager:
             print(f"Error adding financial entry: {e}")
             if not use_external_conn and current_conn: current_conn.rollback()
             raise
-        finally:
-            if not use_external_conn and current_conn: current_conn.close()
+
+    def get_valor_total_vendas_mes_atual(self):
+        try:
+            today = datetime.date.today()
+            start_of_month = today.replace(day=1)
+            query = """SELECT SUM(valor_total) FROM vendas WHERE status = 'Concluída' AND data_venda >= ?"""
+            result = self.execute_query(query, (start_of_month.strftime('%Y-%m-%d'),), fetch_one=True)
+            return result[0] if result and result[0] is not None else 0.0
+        except Exception as e:
+            print(f"Erro ao calcular valor total de vendas do mês: {e}")
+            return 0.0
+
+    def get_valor_total_vendas_ultimos_15_days(self):
+        try:
+            today = datetime.date.today()
+            fifteen_days_ago = today - datetime.timedelta(days=15)
+            query = """SELECT SUM(valor_total) FROM vendas WHERE status = 'Concluída' AND data_venda >= ?"""
+            result = self.execute_query(query, (fifteen_days_ago.strftime('%Y-%m-%d'),), fetch_one=True)
+            return result[0] if result and result[0] is not None else 0.0
+        except Exception as e:
+            print(f"Erro ao calcular valor total de vendas dos últimos 15 dias: {e}")
+            return 0.0
+
+    def get_total_clientes_com_vendas(self):
+        try:
+            query = """SELECT COUNT(DISTINCT cliente_id) FROM vendas WHERE status = 'Concluída' AND cliente_id IS NOT NULL"""
+            result = self.execute_query(query, fetch_one=True)
+            return result[0] if result and result[0] is not None else 0
+        except Exception as e:
+            print(f"Erro ao contar clientes com vendas: {e}")
+            return 0
+
+    def get_maior_valor_venda(self):
+        try:
+            query = """SELECT MAX(valor_total) FROM vendas WHERE status = 'Concluída'"""
+            result = self.execute_query(query, fetch_one=True)
+            return result[0] if result and result[0] is not None else 0.0
+        except Exception as e:
+            print(f"Erro ao buscar maior valor de venda: {e}")
+            return 0.0
+
+    def get_ticket_medio_vendas(self):
+        try:
+            query_total = """SELECT SUM(valor_total) FROM vendas WHERE status = 'Concluída'"""
+            total_vendas_result = self.execute_query(query_total, fetch_one=True)
+            total_vendas = total_vendas_result[0] if total_vendas_result else None
+
+            query_count = """SELECT COUNT(*) FROM vendas WHERE status = 'Concluída'"""
+            count_vendas_result = self.execute_query(query_count, fetch_one=True)
+            count_vendas = count_vendas_result[0] if count_vendas_result else None
+
+            if count_vendas is not None and count_vendas > 0 and total_vendas is not None:
+                return total_vendas / count_vendas
+            else:
+                return 0.0
+        except Exception as e:
+            print(f"Erro ao calcular ticket médio: {e}")
+            return 0.0
 
     def get_all_lancamentos_financeiros(self, filtro_status=None, filtro_tipo=None, order_by="data_vencimento ASC, id ASC"):
         query_str = "SELECT lf.*, v.id as venda_numero FROM lancamentos_financeiros lf LEFT JOIN vendas v ON lf.venda_id = v.id"
@@ -631,5 +685,79 @@ class DatabaseManager:
         stats['produtos_baixo_estoque'] = self.execute_query("SELECT * FROM produtos WHERE quantidade_estoque <= 5 ORDER BY quantidade_estoque ASC LIMIT 5", fetch_all=True) or []
         stats['vendas_recentes'] = self.execute_query("SELECT v.id, v.data_venda, v.valor_total, c.nome as cliente_nome, v.status FROM vendas v LEFT JOIN clientes c ON v.cliente_id = c.id ORDER BY v.data_venda DESC LIMIT 5", fetch_all=True) or []
         return stats
+
+    def get_vendas_last_7_days(self):
+        query = """
+        SELECT strftime('%Y-%m-%d', data_pagamento, 'localtime') as periodo, SUM(valor) as total_vendas
+        FROM lancamentos_financeiros
+        WHERE tipo = 'Receita' AND status_pagamento = 'Pago'
+        AND data_pagamento >= date('now', '-7 days')
+        GROUP BY periodo
+        ORDER BY periodo ASC
+        """
+        return self.execute_query(query, fetch_all=True) or []
+
+    def get_vendas_last_30_days(self):
+        query = """
+        SELECT strftime('%Y-%m-%d', data_pagamento, 'localtime') as periodo, SUM(valor) as total_vendas
+        FROM lancamentos_financeiros
+        WHERE tipo = 'Receita' AND status_pagamento = 'Pago'
+        AND data_pagamento >= date('now', '-30 days')
+        GROUP BY periodo
+        ORDER BY periodo ASC
+        """
+        return self.execute_query(query, fetch_all=True) or []
+
+    def get_vendas_monthly(self):
+        query = """
+        SELECT strftime('%Y-%m', data_pagamento, 'localtime') as periodo, SUM(valor) as total_vendas
+        FROM lancamentos_financeiros
+        WHERE tipo = 'Receita' AND status_pagamento = 'Pago'
+        AND strftime('%Y', data_pagamento, 'localtime') = strftime('%Y', 'now', 'localtime')
+        GROUP BY periodo
+        ORDER BY periodo ASC
+        """
+        return self.execute_query(query, fetch_all=True) or []
+
+    def get_vendas_quarterly(self):
+        query = """
+        SELECT
+            strftime('%Y', data_pagamento, 'localtime') || '-Q' || (
+                CAST(strftime('%m', data_pagamento, 'localtime') AS INTEGER) - 1
+            ) / 3 + 1 AS periodo,
+            SUM(valor) AS total_vendas
+        FROM lancamentos_financeiros
+        WHERE tipo = 'Receita' AND status_pagamento = 'Pago'
+        AND data_pagamento >= date('now', '-1 year') -- Para pegar os últimos 4 trimestres
+        GROUP BY periodo
+        ORDER BY periodo ASC
+        """
+        return self.execute_query(query, fetch_all=True) or []
+
+    def get_vendas_semiannually(self):
+        query = """
+        SELECT
+            strftime('%Y', data_pagamento, 'localtime') || '-S' || (
+                CAST(strftime('%m', data_pagamento, 'localtime') AS INTEGER) - 1
+            ) / 6 + 1 AS periodo,
+            SUM(valor) AS total_vendas
+        FROM lancamentos_financeiros
+        WHERE tipo = 'Receita' AND status_pagamento = 'Pago'
+        AND data_pagamento >= date('now', '-1 year') -- Para pegar os últimos 2 semestres
+        GROUP BY periodo
+        ORDER BY periodo ASC
+        """
+        return self.execute_query(query, fetch_all=True) or []
+
+    def get_vendas_annually(self):
+        query = """
+        SELECT strftime('%Y', data_pagamento, 'localtime') as periodo, SUM(valor) as total_vendas
+        FROM lancamentos_financeiros
+        WHERE tipo = 'Receita' AND status_pagamento = 'Pago'
+        AND data_pagamento >= date('now', '-5 years') -- Para pegar os últimos 5 anos
+        GROUP BY periodo
+        ORDER BY periodo ASC
+        """
+        return self.execute_query(query, fetch_all=True) or []
 
 db_manager = DatabaseManager(DB_NAME)

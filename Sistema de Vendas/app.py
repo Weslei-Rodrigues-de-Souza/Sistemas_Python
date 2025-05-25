@@ -2,13 +2,28 @@ import os
 import datetime
 import sqlite3
 import json
+import sys
+
+# Adiciona o diretório pai ao sys.path para permitir importações relativas
+diretorio_atual = os.path.dirname(os.path.abspath(__file__))
+diretorio_pai = os.path.dirname(diretorio_atual)
+if diretorio_pai not in sys.path:
+    sys.path.insert(0, diretorio_pai)
+import os
+
+print("--- Debugging Import Path ---")
+print(f"Current working directory: {os.getcwd()}")
+print("sys.path:")
+for p in sys.path:
+ print(p)
+print("---------------------------")
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory
-from werkzeug.utils import secure_filename
 from database import db_manager, DB_NAME # Seu database.py (sales_system_database_py_v10)
 from decimal import Decimal
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+
 
 # --- Configurações de Upload ---
 UPLOAD_FOLDER_BASE = os.path.join(app.root_path, 'static', 'uploads')
@@ -56,6 +71,9 @@ def dashboard():
     try:
         stats = db_manager.get_dashboard_stats()
         stats['a_receber_total'] = Decimal(stats.get('a_receber_total') if stats.get('a_receber_total') is not None else 0.0)
+
+        # Buscar dados de vendas para o gráfico (últimos 7 dias por padrão)
+        vendas_last_7_days = db_manager.get_vendas_last_7_days()
         stats['a_pagar_total'] = Decimal(stats.get('a_pagar_total') if stats.get('a_pagar_total') is not None else 0.0)
         stats['recebido_mes_atual'] = Decimal(stats.get('recebido_mes_atual') if stats.get('recebido_mes_atual') is not None else 0.0)
         stats['pago_mes_atual'] = Decimal(stats.get('pago_mes_atual') if stats.get('pago_mes_atual') is not None else 0.0)
@@ -69,7 +87,50 @@ def dashboard():
             'recebido_mes_atual': Decimal('0.00'), 'pago_mes_atual': Decimal('0.00'),
             'produtos_baixo_estoque': [], 'vendas_recentes': []
         }
-    return render_template('dashboard.html', stats=stats)
+        vendas_last_7_days = [] # Garante que a variável existe mesmo em caso de erro
+
+    # Passar os dados de vendas para o template
+    return render_template('dashboard.html', stats=stats, vendas_data=json.dumps([dict(row) for row in vendas_last_7_days]))
+
+@app.route('/api/vendas/last_7_days')
+def api_vendas_last_7_days():
+    try:
+        data = db_manager.get_vendas_last_7_days()
+        return jsonify([dict(row) for row in data])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vendas/last_30_days')
+def api_vendas_last_30_days():
+    try:
+        data = db_manager.get_vendas_last_30_days()
+        return jsonify([dict(row) for row in data])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vendas/monthly')
+def api_vendas_monthly():
+    try:
+        data = db_manager.get_vendas_monthly()
+        return jsonify([dict(row) for row in data])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vendas/quarterly')
+def api_vendas_quarterly():
+    try:
+        data = db_manager.get_vendas_quarterly()
+        return jsonify([dict(row) for row in data])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vendas/semiannually')
+def api_vendas_semiannually():
+    try:
+        data = db_manager.get_vendas_semiannually()
+        return jsonify([dict(row) for row in data])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # --- Grupos ---
 @app.route('/grupos')
@@ -460,6 +521,13 @@ def api_produtos_por_categoria(categoria_id):
 @app.route('/vendas')
 def vendas_lista_page():
     try:
+        # Calcular as métricas de venda
+        valor_total_mes = db_manager.get_valor_total_vendas_mes_atual()
+        valor_total_15_dias = db_manager.get_valor_total_vendas_ultimos_15_days()
+        total_clientes_compraram = db_manager.get_total_clientes_com_vendas()
+        maior_valor_venda = db_manager.get_maior_valor_venda()
+        ticket_medio = db_manager.get_ticket_medio_vendas()
+
         vendas = db_manager.get_all_vendas()
         clientes_all = db_manager.get_all_clientes()
         grupos_all = db_manager.get_all_grupos()
@@ -468,7 +536,13 @@ def vendas_lista_page():
         vendas = []
         clientes_all = []
         grupos_all = []
-    return render_template('vendas_lista.html', vendas=vendas, clientes=clientes_all, grupos=grupos_all)
+        # Inicialize as variáveis das métricas em caso de erro
+        valor_total_mes = 0.0
+        valor_total_15_dias = 0.0
+        total_clientes_compraram = 0
+        maior_valor_venda = 0.0
+        ticket_medio = 0.0
+    return render_template('vendas_lista.html', vendas=vendas, clientes=clientes_all, grupos=grupos_all, valor_total_mes=valor_total_mes, valor_total_15_dias=valor_total_15_dias, total_clientes_compraram=total_clientes_compraram, maior_valor_venda=maior_valor_venda, ticket_medio=ticket_medio)
 
 @app.route('/venda/salvar', methods=['POST'])
 def venda_salvar():
@@ -691,6 +765,14 @@ def financeiro_lancamento_excluir(lancamento_id):
     except Exception as e:
         flash(f'Erro ao excluir lançamento: {str(e)}', 'danger')
     return redirect(url_for('financeiro_lista'))
+
+@app.route('/api/vendas/annually')
+def api_vendas_annually():
+    try:
+        data = db_manager.get_vendas_annually()
+        return jsonify([dict(row) for row in data])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # Rota para servir imagens de produtos
 @app.route('/uploads/product_images/<filename>')

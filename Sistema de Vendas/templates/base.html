@@ -41,9 +41,9 @@
                  <li class="nav-item {% if request.endpoint == 'vendas_lista_page' %}active{% endif %}">
                     <a class="nav-link" href="{{ url_for('vendas_lista_page') }}">
                         Vendas</a>
-                 </li>
-                <li class="nav-item {% if request.endpoint == 'financeiro_lista' %}active{% endif %}">
-                    <a class="nav-link" href="{{ url_for('financeiro_lista') }}">Financeiro</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('financeiro_lista') }}">Financeiro</a> {# TODO: Substituir # pela URL correta do Financeiro #}
                 </li>
             </ul>
         </div>

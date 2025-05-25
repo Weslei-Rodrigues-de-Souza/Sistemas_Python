@@ -5,6 +5,26 @@
 {% block head_extra %}
 <style>
     .card-text { margin-bottom: 0.5rem; }
+    /* Estilos para os novos cartões */
+    .card-metricas .card-body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100px; /* Ajuste conforme necessário */
+        padding: 1rem;
+    }
+    .card-metricas .metric-number {
+        font-size: 1.4rem; /* Ajuste conforme necessário */
+        font-weight: bold;
+    }
+    .card-metricas .metric-label {
+        font-size: 0.8rem; /* Ajuste conforme necessário */
+        color: #6c757d;
+        margin-top: 0.25rem;
+        text-transform: uppercase;
+        text-align: center;
+    }
 </style>
 {% endblock %}
 
@@ -18,6 +38,61 @@
                     ➕ Registrar Nova Venda
                 </button>
             </div>
+
+            {# Início: Seção de Cartões de Métricas de Venda #}
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h4 class="mb-3">Métricas de Venda</h4>
+                    <div class="row">
+                        {# Cartão: Valor Total Mês #}
+                        <div class="col-xl-2 col-md-4 mb-3">
+                            <div class="card text-center card-metricas shadow-sm h-100">
+                                <div class="card-body">
+                                    <div class="metric-number text-primary">R$ {{ "%.2f"|format(valor_total_mes if valor_total_mes is not none else 0.0)|replace('.', ',') }}</div>
+                                    <div class="metric-label">Total (Mês)</div>
+                                </div>
+                            </div>
+                        </div>
+                        {# Cartão: Valor Total Últimos 15 Dias #}
+                        <div class="col-xl-2 col-md-4 mb-3">
+                            <div class="card text-center card-metricas shadow-sm h-100">
+                                <div class="card-body">
+                                    <div class="metric-number text-info">R$ {{ "%.2f"|format(valor_total_15_dias if valor_total_15_dias is not none else 0.0)|replace('.', ',') }}</div>
+                                    <div class="metric-label">Total (Últimos 15 Dias)</div>
+                                </div>
+                            </div>
+                        </div>
+                        {# Cartão: Clientes que Compraram #}
+                        <div class="col-xl-2 col-md-4 mb-3">
+                            <div class="card text-center card-metricas shadow-sm h-100">
+                                <div class="card-body">
+                                    <div class="metric-number text-success">{{ total_clientes_compraram if total_clientes_compraram is not none else 0 }}</div>
+                                    <div class="metric-label">Clientes que Compraram</div>
+                                </div>
+                            </div>
+                        </div>
+                         {# Cartão: Maior Valor Venda #}
+                        <div class="col-xl-3 col-md-6 mb-3">
+                            <div class="card text-center card-metricas shadow-sm h-100">
+                                <div class="card-body">
+                                    <div class="metric-number text-warning">R$ {{ "%.2f"|format(maior_valor_venda if maior_valor_venda is not none else 0.0)|replace('.', ',') }}</div>
+                                    <div class="metric-label">Maior Venda</div>
+                                </div>
+                            </div>
+                        </div>
+                        {# Cartão: Ticket Médio #}
+                        <div class="col-xl-3 col-md-6 mb-3">
+                            <div class="card text-center card-metricas shadow-sm h-100">
+                                <div class="card-body">
+                                    <div class="metric-number text-danger">R$ {{ "%.2f"|format(ticket_medio if ticket_medio is not none else 0.0)|replace('.', ',') }}</div>
+                                    <div class="metric-label">Ticket Médio</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {# Fim: Seção de Cartões de Métricas de Venda #}
 
             {% if vendas %}
             <div class="table-responsive">
@@ -41,7 +116,7 @@
                                 {% if venda.numero_parcelas and venda.numero_parcelas > 1 %}
                                     {{ venda.numero_parcelas }}x 
                                     {% if venda.periodo_pagamento_parcelas %}
-                                        ({{ venda.periodo_pagamento_parcelas }})
+                                        ({{ venda.periodo_pagamento_parcelas if venda.periodo_pagamento_parcelas else 'N/A' }})
                                     {% endif %}
                                 {% elif venda.forma_pagamento %}
                                     1x
