@@ -702,10 +702,10 @@ class DatabaseManager:
 
     def get_vendas_last_7_days(self):
         query = """
-        SELECT strftime('%Y-%m-%d', data_pagamento, 'localtime') as periodo, SUM(valor) as total_vendas
-        FROM lancamentos_financeiros
-        WHERE tipo = 'Receita' AND status_pagamento = 'Pago'
-        AND data_pagamento >= date('now', '-7 days')
+        SELECT strftime('%Y-%m-%d', data_venda, 'localtime') as periodo, SUM(valor_total) as total_vendas
+        FROM vendas
+        WHERE status = 'Concluída'
+        AND data_venda >= date('now', '-7 days')
         GROUP BY periodo
         ORDER BY periodo ASC
         """
@@ -713,51 +713,51 @@ class DatabaseManager:
 
     def get_vendas_last_30_days(self):
         query = """
-        SELECT strftime('%Y-%m-%d', data_pagamento, 'localtime') as periodo, SUM(valor) as total_vendas
-        FROM lancamentos_financeiros
-        WHERE tipo = 'Receita' AND status_pagamento = 'Pago'
-        AND data_pagamento >= date('now', '-30 days')
+        SELECT strftime('%Y-%m-%d', data_venda, 'localtime') as periodo, SUM(valor_total) as total_vendas
+        FROM vendas
+        WHERE status = 'Concluída'
+        AND data_venda >= date('now', '-30 days')
         GROUP BY periodo
         ORDER BY periodo ASC
         """
         return self.execute_query(query, fetch_all=True) or []
 
     def get_vendas_monthly(self):
-        query = """
-        SELECT strftime('%Y-%m', data_pagamento, 'localtime') as periodo, SUM(valor) as total_vendas
-        FROM lancamentos_financeiros
-        WHERE tipo = 'Receita' AND status_pagamento = 'Pago'
-        AND strftime('%Y', data_pagamento, 'localtime') = strftime('%Y', 'now', 'localtime')
+        query = """    
+        SELECT strftime('%Y-%m', data_venda, 'localtime') as periodo, SUM(valor_total) as total_vendas
+        FROM vendas
+        WHERE status = 'Concluída'
+        AND strftime('%Y', data_venda, 'localtime') = strftime('%Y', 'now', 'localtime')
         GROUP BY periodo
         ORDER BY periodo ASC
         """
         return self.execute_query(query, fetch_all=True) or []
 
     def get_vendas_quarterly(self):
-        query = """
+        query = """    
         SELECT
-            strftime('%Y', data_pagamento, 'localtime') || '-Q' || (
-                CAST(strftime('%m', data_pagamento, 'localtime') AS INTEGER) - 1
+            strftime('%Y', data_venda, 'localtime') || '-Q' || (
+                CAST(strftime('%m', data_venda, 'localtime') AS INTEGER) - 1
             ) / 3 + 1 AS periodo,
-            SUM(valor) AS total_vendas
-        FROM lancamentos_financeiros
-        WHERE tipo = 'Receita' AND status_pagamento = 'Pago'
-        AND data_pagamento >= date('now', '-1 year') -- Para pegar os últimos 4 trimestres
+            SUM(valor_total) AS total_vendas
+        FROM vendas
+        WHERE status = 'Concluída'
+        AND data_venda >= date('now', '-1 year') -- Para pegar os últimos 4 trimestres
         GROUP BY periodo
         ORDER BY periodo ASC
         """
         return self.execute_query(query, fetch_all=True) or []
 
     def get_vendas_semiannually(self):
-        query = """
+        query = """    
         SELECT
-            strftime('%Y', data_pagamento, 'localtime') || '-S' || (
-                CAST(strftime('%m', data_pagamento, 'localtime') AS INTEGER) - 1
+            strftime('%Y', data_venda, 'localtime') || '-S' || (
+                CAST(strftime('%m', data_venda, 'localtime') AS INTEGER) - 1
             ) / 6 + 1 AS periodo,
-            SUM(valor) AS total_vendas
-        FROM lancamentos_financeiros
-        WHERE tipo = 'Receita' AND status_pagamento = 'Pago'
-        AND data_pagamento >= date('now', '-1 year') -- Para pegar os últimos 2 semestres
+            SUM(valor_total) AS total_vendas
+        FROM vendas
+        WHERE status = 'Concluída'
+        AND data_venda >= date('now', '-1 year') -- Para pegar os últimos 2 semestres
         GROUP BY periodo
         ORDER BY periodo ASC
         """
@@ -765,10 +765,10 @@ class DatabaseManager:
 
     def get_vendas_annually(self):
         query = """
-        SELECT strftime('%Y', data_pagamento, 'localtime') as periodo, SUM(valor) as total_vendas
-        FROM lancamentos_financeiros
-        WHERE tipo = 'Receita' AND status_pagamento = 'Pago'
-        AND data_pagamento >= date('now', '-5 years') -- Para pegar os últimos 5 anos
+        SELECT strftime('%Y', data_venda, 'localtime') as periodo, SUM(valor_total) as total_vendas
+        FROM vendas
+        WHERE status = 'Concluída'
+        AND data_venda >= date('now', '-5 years') -- Para pegar os últimos 5 anos
         GROUP BY periodo
         ORDER BY periodo ASC
         """

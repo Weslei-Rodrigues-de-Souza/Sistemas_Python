@@ -3,6 +3,10 @@ import datetime
 import sqlite3
 import json
 import sys
+import pandas as pd
+from flask import Response
+import io
+
 
 # Adiciona o diretório pai ao sys.path para permitir importações relativas
 diretorio_atual = os.path.dirname(os.path.abspath(__file__))
@@ -19,7 +23,7 @@ for p in sys.path:
  print(p)
 print("---------------------------")
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory, current_app, Blueprint
-from database import db_manager, DB_NAME # Seu database.py (sales_system_database_py_v10)
+from database import db_manager, DB_NAME  # Seu database.py (sales_system_database_py_v10)
 from decimal import Decimal
 
 app = Flask(__name__)
@@ -750,6 +754,8 @@ def financeiro_lancamento_update_status(lancamento_id):
         flash(f'Erro ao atualizar status: {str(e)}', 'danger')
     return redirect(url_for('financeiro_lista'))
 
+
+
 @app.route('/financeiro/lancamento/excluir/<int:lancamento_id>', methods=['POST'])
 def financeiro_lancamento_excluir(lancamento_id):
     try:
@@ -767,26 +773,134 @@ def financeiro_lancamento_excluir(lancamento_id):
         flash(f'Erro ao excluir lançamento: {str(e)}', 'danger')
     return redirect(url_for('financeiro_lista'))
 
-@app.route('/api/vendas/annually')
-def api_vendas_annually():
+@app.route('/financeiro/lancamento/json/<int:lancamento_id>')
+def financeiro_lancamento_json(lancamento_id):
     try:
-        data = db_manager.get_vendas_annually()
-        return jsonify([dict(row) for row in data])
+        lancamento = db_manager.get_lancamento_financeiro_by_id(lancamento_id)
+        if lancamento:
+            return jsonify(dict(lancamento))
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f'Erro ao buscar lançamento: {str(e)}'}), 500
+    return jsonify({'error': 'Lançamento não encontrado'}), 404
+
+# --- Rotas de Relatórios ---
 
 # Rota para servir imagens de produtos
 @app.route('/uploads/product_images/<filename>')
 def uploaded_product_image(filename):
- return send_from_directory(app.config['PRODUCT_IMAGE_UPLOAD_FOLDER'], filename)
+    return send_from_directory(app.config['PRODUCT_IMAGE_UPLOAD_FOLDER'], filename)
+
+# Rota para exportar relatório de Fluxo de Caixa para Excel
+# Esta rota deve estar antes da rota HTML para o navegador preferir o download.
+@app.route('/financeiro/relatorio/exportar-excel')
+def exportar_fluxo_caixa_excel():
+    try:
+        # 1. Obter filtros da URL
+        filtro_tipo = request.args.get('tipo', None)
+        filtro_data_inicio = request.args.get('data_inicio', None)
+        filtro_data_fim = request.args.get('data_fim', None)
+
+        print("DEBUG: In exportar_fluxo_caixa_excel route")
+        print(f"DEBUG: Filtro Tipo = {filtro_tipo}")
+        print(f"DEBUG: Filtro Data Início = {filtro_data_inicio}")
+        print(f"DEBUG: Filtro Data Fim = {filtro_data_fim}")
+
+        print("DEBUG: Calling db_manager.get_all_lancamentos_financeiros")
+        # 2. Chamar o método do DB com os filtros
+        lancamentos_rows = db_manager.get_all_lancamentos_financeiros(
+            filtro_tipo=filtro_tipo if filtro_tipo and filtro_tipo != 'Todos' else None,
+            data_inicio=filtro_data_inicio, # Explicitly pass data_inicio
+            data_fim=filtro_data_fim # Explicitly pass data_fim
+        )
+
+        print("DEBUG: After calling db_manager.get_all_lancamentos_financeiros")
+
+        # 3. Calcular saldo acumulado (mesma lógica do relatório HTML)
+        saldo_acumulado = Decimal('0.00')
+        lancamentos_para_excel = []
+
+        if lancamentos_rows:
+            for lanc_row in lancamentos_rows:
+                lanc = dict(lanc_row)
+                try:
+                    valor = Decimal(str(lanc.get('valor', '0.00')))
+                except (ValueError, TypeError):
+                    valor = Decimal('0.00')
+
+                if lanc.get('tipo') == 'Receita':
+                    saldo_acumulado += valor
+                elif lanc.get('tipo') == 'Despesa':
+                    saldo_acumulado -= valor
+
+                lanc['saldo_acumulado'] = saldo_acumulado
+                lancamentos_para_excel.append(lanc)
+
+        # 4. Criar DataFrame do pandas
+        print("DEBUG: Before creating pandas DataFrame")
+        df = pd.DataFrame(lancamentos_para_excel)
+        print("DEBUG: After creating pandas DataFrame")
+        if not df.empty:
+        # Explicitly select columns right after DataFrame creation
+            df = df[['descricao', 'tipo', 'valor', 'data_vencimento', 'status_pagamento', 'data_pagamento', 'forma_pagamento_efetiva', 'saldo_acumulado']].copy()
+            df.columns = ['Descrição', 'Tipo', 'Valor (R$)', 'Data Venc.', 'Status Pag.', 'Data Pag.', 'Forma Pag. Efet.', 'Saldo (R$)'] # Renomear colunas
+
+            # Formatar colunas de valor e saldo para 2 casas decimais e usar vírgula como separador decimal
+            for col in ['Valor (R$)', 'Saldo (R$)']:
+                if col in df.columns:
+                    df[col] = df[col].apply(lambda x: f'{x:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.'))
+
+        # 5. Gerar arquivo Excel em memória
+        print("DEBUG: Before generating Excel in memory")
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer: # Line 796 was here
+            df.to_excel(writer, index=False, sheet_name='Fluxo de Caixa')
+        print("DEBUG: After generating Excel in memory")
+
+        print("DEBUG: Seeking to start of BytesIO object")
+
+        output.seek(0)
+
+        # 6. Retornar resposta com o arquivo Excel
+        response = Response(output.read(), mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        # Sugestão: Renomear o nome do arquivo para refletir que é um relatório de fluxo de caixa
+        response.headers['Content-Disposition'] = 'attachment; filename=relatorio_fluxo_de_caixa.xlsx'
+        print("DEBUG: After returning response (this print might not appear immediately if the download starts)")
+
+    except Exception as e:
+        # Tratar erros
+        print(f"ERROR: Exception occurred in exportar_fluxo_caixa_excel: {e}")
+        flash(f"Erro ao exportar relatório para Excel: {e}", "danger")
+        print("DEBUG: Redirecting back to report page after error")
+        print("DEBUG: About to return redirect in except block") # Added print statement
+        # Redirecionar de volta para a página de relatório HTML, passando os filtros originais
+        return redirect(url_for('relatorio_fluxo_de_caixa',
+                                tipo=request.args.get('tipo'),
+                                data_inicio=request.args.get('data_inicio'),
+                                data_fim=request.args.get('data_fim')))
+
+@app.route('/api/vendas/annually')
+def api_vendas_annually():
+    try:
+            data = db_manager.get_vendas_annually()
+            if data:
+                return jsonify([dict(row) for row in data])
+            else:
+                return jsonify([]), 200 # Retorna uma lista vazia se não houver dados
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/financeiro/relatorio/fluxo-de-caixa')
 def relatorio_contas_pendentes():
     try:
         # 1. Obter filtros da URL
-        filtro_tipo = request.args.get('filtroTipo', None)
-        filtro_data_inicio = request.args.get('filtroDataInicio', None)
-        filtro_data_fim = request.args.get('filtroDataFim', None)
+        filtro_tipo = request.args.get('tipo', None)
+        filtro_data_inicio = request.args.get('data_inicio', None)
+        filtro_data_fim = request.args.get('data_fim', None)
+
+ # Debug: Print dos valores dos filtros
+        print(f"Debug: Filtro Tipo = {filtro_tipo}")
+        print(f"Debug: Filtro Data Início = {filtro_data_inicio}")
+        print(f"Debug: Filtro Data Fim = {filtro_data_fim}")
 
         # 2. Chamar o método do DB com os filtros
         lancamentos_rows = db_manager.get_all_lancamentos_financeiros(
@@ -806,7 +920,7 @@ def relatorio_contas_pendentes():
                 try:
                     valor = Decimal(str(lanc.get('valor', '0.00')))
                 except (ValueError, TypeError):
-                    valor = Decimal('0.00') # Valor padrão seguro em caso de erro
+                    valor = Decimal('0.00')  # Valor padrão seguro em caso de erro
                 if lanc.get('tipo') == 'Receita':
                     saldo_acumulado += valor
                 elif lanc.get('tipo') == 'Despesa':
@@ -838,7 +952,7 @@ def relatorio_contas_pendentes():
 
         # 6. Renderizar template com dados e filtros
     return render_template('relatorio.html',
-                           lancamentos=lancamentos_com_saldo,
+                           contas_pendentes=lancamentos_com_saldo,
                            stats=stats,
                            filtro_tipo_atual=filtro_tipo,
  filtro_data_inicio_atual=filtro_data_inicio,

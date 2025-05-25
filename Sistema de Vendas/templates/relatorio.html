@@ -1,33 +1,35 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <h1>Relatório - Fluxo de Caixa</h1>
+    <h2>Relatório - Fluxo de Caixa</h2>
 
 <div class="filters-container">
  <label for="filter-tipo">Tipo:</label>
- <form id="filtroForm" method="GET" class="form-inline">
- <select id="filter-tipo" name="tipo" class="form-control form-control-sm mr-2">
- <option value="">Todos</option>
- <option value="Receita">Receita</option>
+ <form id="filtroForm" method="GET" class="form-inline" action="{{ url_for('relatorio_contas_pendentes') }}">
+ <select id="filter-tipo" name="tipo" class="form-control form-control-sm mr-2">{% set current_tipo = filtro_tipo_atual or '' %}
+ <option value="" {% if current_tipo == "" %}selected{% endif %}>Todos</option>
+ <option value="Receita" {% if current_tipo == "Receita" %}selected{% endif %}>Receita</option>{% set current_tipo = filtro_tipo_atual or '' %}
  <option value="Despesa">Despesa</option>
  </select>
  {# <!-- Filtros (Apenas Estrutura Visual) --> #}
+<label for="filter-data-fim">Data Fim:</label>{% set current_tipo = filtro_tipo_atual or '' %}
 
  <label for="filter-data-inicio">Data Início:</label>
  <input type="date" id="filter-data-inicio" name="data_inicio" class="form-control form-control-sm d-inline-block w-auto mr-2">
 
- <label for="filter-data-fim">Data Fim:</label>
+ <label for="filter-data-fim">Data Fim:</label>{% set current_tipo = filtro_tipo_atual or '' %}
  <input type="date" id="filter-data-fim" name="data_fim" class="form-control form-control-sm d-inline-block w-auto mr-2">
 
  <button type="submit" class="btn btn-primary btn-sm mr-2" name="filtrar">Filtrar</button>
  <button type="button" class="btn btn-secondary btn-sm" name="limpar_filtros">Limpar Filtros</button>
+ <button type="button" class="btn btn-success btn-sm" id="exportar-excel">Exportar para Excel</button>
  </form>
 </div>
 
 <br/>
 
 <!-- Controles de Exibição e Busca (Apenas Estrutura Visual) -->
-<div class="controls-container d-flex justify-content-between align-items-center mb-3" style="display: none;"> {# Ocultado, DataTables gerencia #}
+<div class="controls-container d-flex justify-content-between align-items-center mb-3"> {# Ocultado, DataTables gerencia #}
  <div class="show-entries">
  Show
  <select class="form-control form-control-sm d-inline-block w-auto">
@@ -52,9 +54,9 @@
         Registros Financeiros
     </div>
     <div class="card-body">
-        {% if contas_pendentes %}
-        <div class="table-responsive">
-            <table class="table table-hover table-sm table-financeiro" id="tabelaLancamentos">
+ {% if contas_pendentes %}
+ <div class="table-responsive">
+            <table class="table table-hover table-sm datatable-financeiro table-financeiro" id="tabelaLancamentos">
         <thead>
             <tr>
  <th>ID</th>
@@ -94,9 +96,10 @@
         </tbody>
     </table>
         </div>
-        {% else %}
+ {% endif %}
+    {% if not contas_pendentes %}
         <div class="alert alert-info">Nenhum lançamento financeiro encontrado para os filtros aplicados.</div>
-        {% endif %}
+    {% endif %}
     </div>
 </div>
 
@@ -116,4 +119,77 @@
 {% endblock %}
 
 {% block scripts_extra %}
+<style>
+    .controls-container {    
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .show-entries {
+        margin-right: 15px; /* Ajustar espaçamento conforme necessário */
+    }
+/* Estilos adicionais para a tabela se necessário */
+
+</style>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Restore selected filters on page load
+        const filtroForm = document.getElementById('filtroForm');
+        const exportExcelButton = document.getElementById('exportar-excel');
+        if (limparFiltrosBtn) { // Check if the button exists
+            const limparFiltrosBtn = document.querySelector('button[name="limpar_filtros"]'); // Select the button by name
+            limparFiltrosBtn.addEventListener('click', function () {
+                document.getElementById('filter-data-inicio').value = '';
+                document.getElementById('filter-data-fim').value = '';
+                document.getElementById('filter-tipo').value = ''; // Reseta para a opção "Todos"
+                // Submit the form to clear filters and reload the page
+                filtroForm.submit();
+            });
+        }
+
+        // Remove URL parameters after page load
+        if (window.location.search) {
+            // Get parameters to potentially restore filter values later
+            const params = new URLSearchParams(window.location.search);
+            history.replaceState({}, document.title, window.location.pathname);
+        }
+
+        // Handle Export to Excel button click
+        if (exportExcelButton) {
+            exportExcelButton.addEventListener('click', function() {
+                const originalAction = filtroForm.action;
+                console.log('Exportar para Excel button clicked');
+                const tipo = document.getElementById('filter-tipo').value;
+                const dataInicio = document.getElementById('filter-data-inicio').value;
+                const dataFim = document.getElementById('filter-data-fim').value;
+
+                // Construct the export URL dynamically
+                let exportUrl = "{{ url_for('exportar_fluxo_caixa_excel') }}";
+                const params = new URLSearchParams();
+                if (tipo) params.append('tipo', tipo);
+                if (dataInicio) params.append('data_inicio', dataInicio);
+                if (dataFim) params.append('data_fim', dataFim);
+                window.location.href = exportUrl + '?' + params.toString();
+            });
+        }
+    });
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const dataInicioInput = document.getElementById('filter-data-inicio');
+        const dataFimInput = document.getElementById('filter-data-fim');
+        const tipoSelect = document.getElementById('filter-tipo');
+
+        // Set initial values from Flask variables if they exist
+ {% if filtro_data_inicio_atual %}
+        dataInicioInput.value = "{{ filtro_data_inicio_atual | date_input }}";
+ {% endif %}
+ {% if filtro_data_fim_atual %}
+        dataFimInput.value = "{{ filtro_data_fim_atual | date_input }}";
+ {% endif %}
+ {% if filtro_tipo_atual is not none %}
+        tipoSelect.value = "{{ filtro_tipo_atual }}";
+ {% endif %}
+    });
+</script>
 {% endblock %}
