@@ -50,6 +50,15 @@ class DatabaseManager:
             if conn: # Garante que a conexão seja sempre fechada
                 conn.close()
 
+    def add_column_to_table(self, table_name, column_name, column_definition):
+        """Adiciona uma coluna a uma tabela se ela não existir."""
+        # Check if column exists
+        cursor = self._get_connection().cursor()
+        cursor.execute(f"PRAGMA table_info({table_name});")
+        columns = [column[1] for column in cursor.fetchall()]
+        if column_name not in columns:
+            self.execute_query(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition};")
+
     def create_tables(self):
         """Cria todas as tabelas necessárias se elas ainda não existirem."""
         queries = [
@@ -168,6 +177,8 @@ class DatabaseManager:
             """
         ]
         for query_stmt in queries:
+ self.execute_query(query_stmt)
+ self.add_column_to_table('lancamentos_financeiros', 'numero_parcela_atual', 'INTEGER DEFAULT 1')
             self.execute_query(query_stmt)
         print("Tables checked/created successfully.")
 
