@@ -177,6 +177,8 @@ class DatabaseManager:
             """
         ]
         for query_stmt in queries:
+ self.execute_query(query_stmt)
+ self.add_column_to_table('lancamentos_financeiros', 'numero_parcela_atual', 'INTEGER DEFAULT 1')
             self.execute_query(query_stmt)
         self.add_column_to_table('lancamentos_financeiros', 'numero_parcela_atual', 'INTEGER DEFAULT 1')
         print("Tables checked/created successfully.")
