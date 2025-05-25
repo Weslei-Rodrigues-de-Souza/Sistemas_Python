@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+
+{% block title %}Gerenciar Produtos{% endblock %}
+
+{% block head_extra %}
+<style>
+    .produto-thumbnail {
+        width: 60px; /* Largura fixa */
+        height: 60px; /* Altura fixa */
+        object-fit: cover; /* Corta para preencher, mantendo proporção */
+        border-radius: 0.25rem;
+        border: 1px solid #ddd;
+    }
+    .table td, .table th {
+        vertical-align: middle;
+    }
+    /* Estilos para a nova visualização de imagens no modal */
+    #imagePreviewArea {
+        border: 1px solid #ddd;
+        background-color: #f8f9fa;
+        border-radius: 0.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 250px; /* Altura da área de preview */
+        margin-bottom: 1rem;
+        padding: 10px;
+    }
+    #imagePreviewDisplay {
+        max-width: 100%;
+        max-height: 240px; /* Um pouco menor que a área para não colar nas bordas */
+        object-fit: contain;
+        display: none; /* Inicialmente oculta */
+    }
+    #imagePreviewPlaceholder {
+        color: #6c757d;
+    }
+    #listaImagensExistentes .list-group-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.5rem 0.75rem;
+    }
+    #listaImagensExistentes img.thumbnail-lista {
+        width: 40px;
+        height: 40px;
+        object-fit: cover;
+        border-radius: 0.2rem;
+        margin-right: 10px;
+        cursor: pointer;
+        border: 1px solid #eee;
+    }
+    #listaImagensExistentes .form-check-label {
+        font-size: 0.9em;
+        word-break: break-all; /* Quebra nomes de arquivo longos */
+    }
+    #listaImagensExistentes .form-check {
+        display: flex; /* Alinha checkbox e label */
+        align-items: center;
+    }
+     #listaImagensExistentes .form-check-input {
+        margin-top: 0; /* Ajuste fino do checkbox */
+        margin-right: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Lista de Produtos</h2>
+    <button type="button" class="btn btn-success" data-toggle="modal" data-target="#addProdutoModal">
+        ➕ Adicionar Novo Produto
+    </button>
+</div>
+
+<form method="GET" action="{{ url_for('produtos_lista') }}" class="form-inline mb-3">
+    <input type="text" name="search" class="form-control mr-sm-2" placeholder="Pesquisar produto, categoria, grupo..." value="{{ search_query or '' }}">
+    <button type="submit" class="btn btn-outline-secondary">Pesquisar</button>
+</form>
+
+{% if produtos %}
+<div class="table-responsive">
+    <table class="table table-striped table-hover datatable" id="tabelaProdutos">
+        <thead class="thead-dark">
+            <tr>
+                <th style="width: 5%;">ID</th>
+                <th style="width: 10%;">Imagem</th>
+                <th style="width: 25%;">Nome do Produto</th>
+                <th style="width: 15%;">Grupo</th>
+                <th style="width: 15%;">Categoria</th>
+                <th style="width: 10%;">Preço (R$)</th>
+                <th style="width: 5%;">Estoque</th>
+                <th style="width: 15%;">Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for produto in produtos %}
+            <tr>
+                <td>{{ produto.id }}</td>
+                <td>
+                    {% if produto.imagem_principal %}
+                    <img src="{{ url_for('uploaded_product_image', filename=produto.imagem_principal) }}" alt="{{ produto.nome }}" class="produto-thumbnail">
+                    {% else %}
+                    <div class="produto-thumbnail bg-light d-flex align-items-center justify-content-center">
+                        <span class="text-muted small">N/F</span>
+                    </div>
+                    {% endif %}
+                </td>
+                <td>{{ produto.nome }}</td>
+                <td>{{ produto.grupo_nome or 'N/A' }}</td>
+                <td>{{ produto.categoria_nome or 'N/A' }}</td>
+                <td>{{ "%.2f"|format(produto.preco_venda)|replace('.', ',') }}</td>
+                <td>{{ produto.quantidade_estoque }} {{ produto.unidade_medida or 'Un.' }}</td>
+                <td class="action-buttons">
+                    <button type="button" class="btn btn-sm btn-outline-primary btn-edit-produto"
+                            data-toggle="modal" data-target="#editProdutoModal"
+                            data-produto-id="{{ produto.id }}" title="Editar Produto">📝</button>
+                    <form action="{{ url_for('produto_excluir', produto_id=produto.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja excluir este produto e todas as suas imagens?');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir Produto">🗑️</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-info">
+    {% if search_query %}
+    Nenhum produto encontrado para "{{ search_query }}". <a href="{{ url_for('produtos_lista') }}">Limpar pesquisa</a>
+    {% else %}
+    Nenhum produto cadastrado.
+    {% endif %}
+</div>
+{% endif %}
+
+{% include '_modal_produto.html' with context %}
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+$(document).ready(function() {
+    $('.select2-basic-modal-produto').each(function() {
+        var $this = $(this);
+        if ($.fn.select2 && !$this.data('select2')) {
+            $this.select2({
+                theme: 'bootstrap', language: "pt-BR",
+                placeholder: $this.find('option:first').text(),
+                allowClear: true,
+                dropdownParent: $this.closest('.modal')
+            });
+        }
+    });
+
+    function escapeHtml(unsafe) {
+        if (typeof unsafe !== 'string') { return unsafe; }
+        return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    $('#editProdutoModal').on('show.bs.modal', function (event) {
+        var button = $(event.relatedTarget);
+        var produtoId = button.data('produto-id');
+        var modal = $(this);
+
+        modal.find('form')[0].reset();
+        $('#edit_categoria_id_produto').val("None").trigger('change.select2');
+        
+        // Resetar área de preview de imagem
+        $('#imagePreviewDisplay').hide().attr('src', '#');
+        $('#imagePreviewPlaceholder').show().text('Carregando imagens...');
+        $('#listaImagensExistentes').empty();
+
+        modal.find('#edit_produto_id_hidden').val(produtoId);
+        modal.find('#editProdutoForm').attr('action', "{{ url_for('produto_editar', produto_id=0) }}".replace('0', produtoId));
+        modal.find('.modal-title').text('Editar Produto ID: ' + produtoId);
+
+        $.ajax({
+            url: "{{ url_for('produto_json', produto_id=0) }}".replace('0', produtoId),
+            method: 'GET',
+            success: function(response) {
+                if (response && !response.error) {
+                    modal.find('#edit_nome_produto').val(response.nome);
+                    modal.find('#edit_descricao_produto').val(response.descricao || '');
+                    modal.find('#edit_preco_venda_produto').val(parseFloat(response.preco_venda || 0).toFixed(2));
+                    modal.find('#edit_quantidade_estoque_produto').val(response.quantidade_estoque);
+                    modal.find('#edit_unidade_medida_produto').val(response.unidade_medida || '');
+                    
+                    if (response.categoria_id !== null && response.categoria_id !== undefined) {
+                        $('#edit_categoria_id_produto').val(response.categoria_id).trigger('change.select2');
+                    } else {
+                         $('#edit_categoria_id_produto').val("None").trigger('change.select2');
+                    }
+
+                    var listaImagensDiv = $('#listaImagensExistentes');
+                    var imagePreviewDisplay = $('#imagePreviewDisplay');
+                    var imagePreviewPlaceholder = $('#imagePreviewPlaceholder');
+                    listaImagensDiv.empty();
+
+                    if (response.imagens && response.imagens.length > 0) {
+                        imagePreviewPlaceholder.hide();
+                        imagePreviewDisplay.attr('src', "{{ url_for('uploaded_product_image', filename='') }}" + response.imagens[0].caminho_imagem).show();
+                        
+                        $.each(response.imagens, function(index, img) {
+                            var imageUrl = "{{ url_for('uploaded_product_image', filename='') }}" + img.caminho_imagem;
+                            var imageName = escapeHtml(img.caminho_imagem.split('_').slice(1).join('_') || img.caminho_imagem);
+                            var imageCaption = escapeHtml(img.legenda || 'Sem legenda');
+
+                            var listItem = `
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between align-items-center">
+                                        <div>
+                                            <img src="${imageUrl}" alt="${imageName}" class="thumbnail-lista mr-2" data-fullimage="${imageUrl}">
+                                            <small>${imageName} (${imageCaption})</small>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input remover-imagem-check" type="checkbox" name="remover_imagem_ids" value="${img.id}" id="remover_img_${img.id}">
+                                            <label class="form-check-label" for="remover_img_${img.id}">Remover</label>
+                                        </div>
+                                    </div>
+                                </div>`;
+                            listaImagensDiv.append(listItem);
+                        });
+                    } else {
+                        imagePreviewDisplay.hide();
+                        imagePreviewPlaceholder.text('Nenhuma imagem cadastrada.').show();
+                    }
+                } else {
+                    showToast("Erro", response.error || "Não foi possível carregar dados do produto.", false);
+                    modal.modal('hide');
+                }
+            },
+            error: function() {
+                showToast("Erro", "Falha na comunicação ao buscar dados do produto.", false);
+                modal.modal('hide');
+            }
+        });
+    });
+    
+    // Evento de clique na miniatura da lista para atualizar o preview principal
+    $('#listaImagensExistentes').on('click', '.thumbnail-lista', function() {
+        var fullImageUrl = $(this).data('fullimage');
+        $('#imagePreviewDisplay').attr('src', fullImageUrl).show();
+        $('#imagePreviewPlaceholder').hide();
+    });
+
+
+    $('#addProdutoModal').on('hidden.bs.modal', function () {
+        $(this).find('form')[0].reset();
+        $('#categoria_id_produto').val("None").trigger('change.select2');
+        $('#imagens_produto').val('');
+    });
+    $('#editProdutoModal').on('hidden.bs.modal', function () {
+        $('#edit_imagens_produto').val('');
+        // Não reseta o formulário inteiro para o caso de o usuário querer reabrir
+    });
+});
+</script>
+{% endblock %}
